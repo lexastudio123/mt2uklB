@@ -78,6 +78,7 @@ export async function launchChecklist(s: SiteSettings): Promise<CheckItem[]> {
   const bank = bankTransferAvailable(s);
   const card = cardPaymentsAvailable(s);
   const sampleLots = await db.lot.count({ where: { isCurrent: true, isSample: true } });
+  const ownersWithoutTwoStep = await db.adminUser.count({ where: { role: 'owner', active: true, totpEnabledAt: null } });
   const co = s.company;
   const placeholders = [co.name, co.address, co.number].some((v) => !v || v.includes('['));
   const url = siteUrl();
@@ -106,6 +107,14 @@ export async function launchChecklist(s: SiteSettings): Promise<CheckItem[]> {
       label: 'Real lot reports',
       detail: sampleLots ? `${sampleLots} current ${sampleLots === 1 ? 'lot is' : 'lots are'} sample data from the design. Add your real certificates.` : 'All current lots are real.',
       href: '/admin/lots',
+    },
+    {
+      done: ownersWithoutTwoStep === 0,
+      label: 'Two-step sign in for owners',
+      detail: ownersWithoutTwoStep
+        ? `${ownersWithoutTwoStep} owner ${ownersWithoutTwoStep === 1 ? 'account uses' : 'accounts use'} only a password. Turn on two-step sign in under Your account.`
+        : 'Every owner signs in with a password and a code from their phone.',
+      href: '/admin/account',
     },
     { done: s.legalReviewed, label: 'Legal pages reviewed', detail: s.legalReviewed ? 'Marked as reviewed.' : 'Have a solicitor review terms, privacy and cookies, then tick “reviewed”.', href: '/admin/settings?tab=store' },
     {

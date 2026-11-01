@@ -90,19 +90,24 @@ export type AdminRole = 'owner' | 'admin' | 'staff';
 const RANK: Record<AdminRole, number> = { staff: 1, admin: 2, owner: 3 };
 export const hasRole = (a: Pick<AdminUser, 'role'>, min: AdminRole) => (RANK[a.role as AdminRole] ?? 0) >= RANK[min];
 
-export async function startAdminSession(adminId: string): Promise<void> {
+/**
+ * Start an admin session. With `pending`, the password was right but two-step sign-in still needs
+ * the authenticator code: the session lasts 10 minutes and grants nothing until completeAdminMfa().
+ */
+export async function startAdminSession(adminId: string, opts: { pending?: boolean } = {}): Promise<void> {
   const token = newToken();
   const h = await headers();
   await db.adminSession.create({
     data: {
       id: sha256(token),
       adminId,
-      expiresAt: new Date(Date.now() + ADMIN_HOURS * 36e5),
+      mfaPending: !!opts.pending,
+      expiresAt: new Date(Date.now() + (opts.pending ? 10 * 60_000 : ADMIN_HOURS * 36e5)),
       ip: clientIp(h),
       userAgent: h.get('user-agent')?.slice(0, 300) ?? null,
     },
   });
-  await db.adminUser.update({ where: { id: adminId }, data: { lastLoginAt: new Date() } });
+  if (!opts.pending) await db.adminUser.update({ where: { id: adminId }, data: { lastLoginAt: new Date() } });
   (await cookies()).set(ADMIN_COOKIE, token, {
     httpOnly: true,
     secure: secureCookies(),
@@ -112,13 +117,36 @@ export async function startAdminSession(adminId: string): Promise<void> {
   });
 }
 
-export const getAdmin = cache(async (): Promise<AdminUser | null> => {
+async function currentAdminSession() {
   const token = (await cookies()).get(ADMIN_COOKIE)?.value;
   if (!token) return null;
   const s = await db.adminSession.findUnique({ where: { id: sha256(token) }, include: { admin: true } });
   if (!s || s.expiresAt < new Date() || !s.admin.active) return null;
-  return s.admin;
+  return s;
+}
+
+/** The signed-in admin, or null. A session still waiting for its authenticator code does not count. */
+export const getAdmin = cache(async (): Promise<AdminUser | null> => {
+  const s = await currentAdminSession();
+  return s && !s.mfaPending ? s.admin : null;
 });
+
+/** The admin whose password was accepted but who still has to enter their authenticator code. */
+export async function getPendingAdmin(): Promise<AdminUser | null> {
+  const s = await currentAdminSession();
+  return s?.mfaPending ? s.admin : null;
+}
+
+/** Second step passed: turn the pending session into a full one. */
+export async function completeAdminMfa(): Promise<void> {
+  const token = (await cookies()).get(ADMIN_COOKIE)?.value;
+  if (!token) return;
+  const s = await db.adminSession.update({
+    where: { id: sha256(token) },
+    data: { mfaPending: false, expiresAt: new Date(Date.now() + ADMIN_HOURS * 36e5) },
+  });
+  await db.adminUser.update({ where: { id: s.adminId }, data: { lastLoginAt: new Date() } });
+}
 
 /** Use at the top of every admin page and server action. Redirects to the login page when signed out. */
 export async function requireAdmin(min: AdminRole = 'staff'): Promise<AdminUser> {

@@ -4,7 +4,7 @@ import type { SP } from '@/lib/admin/queries';
 import { ago, fd } from '@/lib/admin/format';
 import { Flash, PageHead, Pill } from '@/components/admin/ui';
 import { SubmitButton } from '@/components/admin/client';
-import { addAdminAction, changeRoleAction, resetAdminPasswordAction, toggleAdminAction } from './actions';
+import { addAdminAction, changeRoleAction, resetAdminPasswordAction, resetTwoStepAction, toggleAdminAction } from './actions';
 
 export const metadata = { title: 'Team' };
 
@@ -54,8 +54,19 @@ export default async function TeamPage({ searchParams }: { searchParams: Promise
                   <td className="a-small" style={{ color: 'var(--ink)' }}>
                     {u.lastLoginAt ? ago(u.lastLoginAt) : 'Never'}
                   </td>
-                  <td>{u.active ? <Pill tone="green">Active</Pill> : <Pill>Deactivated</Pill>}</td>
+                  <td>
+                    {u.active ? <Pill tone="green">Active</Pill> : <Pill>Deactivated</Pill>}{' '}
+                    {u.totpEnabledAt ? <Pill tone="teal">Two-step on</Pill> : <Pill>Password only</Pill>}
+                  </td>
                   <td className="a-right">
+                    {u.id !== me.id && u.totpEnabledAt && (
+                      <form action={resetTwoStepAction} style={{ marginBottom: 6 }}>
+                        <input type="hidden" name="id" value={u.id} />
+                        <SubmitButton className="a-btn ghost sm" confirm={`Reset two-step sign in for ${u.name}? Use this if they lost their phone.`}>
+                          Reset two-step
+                        </SubmitButton>
+                      </form>
+                    )}
                     {u.id !== me.id && (
                       <form action={toggleAdminAction}>
                         <input type="hidden" name="id" value={u.id} />

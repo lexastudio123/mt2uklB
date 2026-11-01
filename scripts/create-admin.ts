@@ -37,9 +37,10 @@ async function main() {
   if (password.length < Math.max(PASSWORD_MIN, 10)) throw new Error('Use at least 10 characters for an admin password.');
   const passwordHash = await hashPassword(password);
   if (existing) {
-    await db.adminUser.update({ where: { email }, data: { passwordHash, active: true } });
+    // Server access is the last-resort recovery path, so this also clears two-step sign in.
+    await db.adminUser.update({ where: { email }, data: { passwordHash, active: true, totpSecret: null, totpEnabledAt: null, totpLastStep: null } });
     await db.adminSession.deleteMany({ where: { adminId: existing.id } });
-    console.log(`Password updated for ${email}. Existing sessions were signed out.`);
+    console.log(`Password updated for ${email}. Two-step sign in was reset and existing sessions were signed out.`);
   } else {
     await db.adminUser.create({ data: { email, name, role, passwordHash } });
     console.log(`Created ${role} account for ${email}. Sign in at /admin/login`);

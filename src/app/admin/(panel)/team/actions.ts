@@ -91,3 +91,20 @@ export async function resetAdminPasswordAction(fd: FormData) {
   }
   back('/admin/team', r);
 }
+
+/** For a teammate who lost their phone: they sign in with just their password and can set it up again. */
+export async function resetTwoStepAction(fd: FormData) {
+  const a = await requireArea('team');
+  let r: R;
+  try {
+    const id = str(fd, 'id');
+    const u = await db.adminUser.findUniqueOrThrow({ where: { id } });
+    await db.adminUser.update({ where: { id }, data: { totpSecret: null, totpEnabledAt: null, totpLastStep: null } });
+    await db.adminSession.deleteMany({ where: { adminId: id } });
+    await logActivity(a.id, 'team.2fa_reset', 'admin', id, u.email);
+    r = { ok: `Two-step sign in reset for ${u.name}. They can sign in with their password and set it up again under “Your account”.` };
+  } catch (e) {
+    r = { err: errorMessage(e) };
+  }
+  back('/admin/team', r);
+}

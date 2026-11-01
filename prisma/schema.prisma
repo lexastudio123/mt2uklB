@@ -451,6 +451,11 @@ model AdminUser {
   passwordHash String
   role         String    @default("staff") // owner | admin | staff
   active       Boolean   @default(true)
+  // Two-step sign-in (authenticator app). The secret is saved during setup and
+  // only enforced once totpEnabledAt is set. totpLastStep stops a code being used twice.
+  totpSecret    String?
+  totpEnabledAt DateTime?
+  totpLastStep  Int?
   lastLoginAt  DateTime?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
@@ -466,9 +471,10 @@ model AdminUser {
 }
 
 model AdminSession {
-  id        String    @id // SHA-256 of the cookie token
-  adminId   String
-  expiresAt DateTime
+  id         String    @id // SHA-256 of the cookie token
+  adminId    String
+  mfaPending Boolean   @default(false) // password accepted, still waiting for the authenticator code
+  expiresAt  DateTime
   ip        String?
   userAgent String?
   createdAt DateTime  @default(now())

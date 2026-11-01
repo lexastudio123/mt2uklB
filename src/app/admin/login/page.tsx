@@ -1,12 +1,16 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { getAdmin } from '@/lib/auth';
-import { LoginForm } from './form';
+import { getAdmin, getPendingAdmin } from '@/lib/auth';
+import { CodeForm, LoginForm } from './form';
 
 export const metadata = { title: 'Sign in' };
 
-export default async function AdminLogin() {
+export default async function AdminLogin({ searchParams }: { searchParams: Promise<{ step?: string; next?: string }> }) {
   if (await getAdmin()) redirect('/admin');
+  const sp = await searchParams;
+  const next = sp.next && sp.next.startsWith('/admin') && !sp.next.startsWith('//') ? sp.next : undefined;
+  // A half-finished sign in (password accepted, code still needed) always lands on the code step.
+  const pending = await getPendingAdmin();
   return (
     <div className="a-login">
       <div className="a-login-card">
@@ -24,11 +28,17 @@ export default async function AdminLogin() {
           <i />
         </div>
         <div className="body">
-          <h1>Sign in</h1>
-          <p className="a-small" style={{ margin: '0 0 18px' }}>
-            For the MT2 Lab team. Forgotten your password? Ask the shop owner to reset it, or run <span className="a-code">npm run admin:create</span> on the server.
-          </p>
-          <LoginForm />
+          <h1>{pending ? 'Two-step sign in' : 'Sign in'}</h1>
+          {pending ? (
+            <CodeForm email={pending.email} next={next} />
+          ) : (
+            <>
+              <p className="a-small" style={{ margin: '0 0 18px' }}>
+                For the MT2 Lab team. Forgotten your password? Ask the shop owner to reset it, or run <span className="a-code">npm run admin:create</span> on the server.
+              </p>
+              <LoginForm next={next} />
+            </>
+          )}
           <p className="a-small" style={{ margin: '18px 0 0' }}>
             <Link href="/" className="a-link muted">
               Back to the shop
