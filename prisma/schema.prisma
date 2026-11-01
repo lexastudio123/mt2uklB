@@ -149,18 +149,18 @@ model Customer {
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
-  referredBy   Customer?      @relation("Referrals", fields: [referredById], references: [id], onDelete: SetNull)
-  referrals    Customer[]     @relation("Referrals")
-  addresses    Address[]
-  orders       Order[]        @relation("CustomerOrders")
-  referredOrders Order[]      @relation("ReferrerOrders")
-  sessions     Session[]
-  tokens       AuthToken[]
-  notes        CustomerNote[]
-  alerts       ProductAlert[]
-  tickets      Ticket[]
-  credits      CreditEntry[]
-  chats        ChatConversation[]
+  referredBy     Customer?          @relation("Referrals", fields: [referredById], references: [id], onDelete: SetNull)
+  referrals      Customer[]         @relation("Referrals")
+  addresses      Address[]
+  orders         Order[]            @relation("CustomerOrders")
+  referredOrders Order[]            @relation("ReferrerOrders")
+  sessions       Session[]
+  tokens         AuthToken[]
+  notes          CustomerNote[]
+  alerts         ProductAlert[]
+  tickets        Ticket[]
+  credits        CreditEntry[]
+  chats          ChatConversation[]
 }
 
 model Address {
@@ -263,6 +263,7 @@ model Order {
   accessToken        String    @unique // private link for guests (confirmation, invoice)
   customerId         String?
   referrerId         String?
+  affiliateId        String? // partner credited with this order (their code was used)
   email              String
   name               String
   phone              String?
@@ -312,15 +313,18 @@ model Order {
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
 
-  customer Customer?    @relation("CustomerOrders", fields: [customerId], references: [id], onDelete: SetNull)
-  referrer Customer?    @relation("ReferrerOrders", fields: [referrerId], references: [id], onDelete: SetNull)
-  items    OrderItem[]
-  events   OrderEvent[]
+  customer    Customer?             @relation("CustomerOrders", fields: [customerId], references: [id], onDelete: SetNull)
+  referrer    Customer?             @relation("ReferrerOrders", fields: [referrerId], references: [id], onDelete: SetNull)
+  affiliate   Affiliate?            @relation(fields: [affiliateId], references: [id], onDelete: SetNull)
+  items       OrderItem[]
+  events      OrderEvent[]
+  commissions AffiliateCommission[]
 
   @@index([status])
   @@index([createdAt])
   @@index([email])
   @@index([customerId])
+  @@index([affiliateId])
 }
 
 model OrderItem {
@@ -445,29 +449,30 @@ model EmailLog {
 // ───────────────────────────── Admin ─────────────────────────────
 
 model AdminUser {
-  id           String    @id @default(cuid())
-  email        String    @unique
-  name         String
-  passwordHash String
-  role         String    @default("staff") // owner | admin | staff
-  active       Boolean   @default(true)
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String
+  passwordHash  String
+  role          String    @default("staff") // owner | admin | staff
+  active        Boolean   @default(true)
   // Two-step sign-in (authenticator app). The secret is saved during setup and
   // only enforced once totpEnabledAt is set. totpLastStep stops a code being used twice.
   totpSecret    String?
   totpEnabledAt DateTime?
   totpLastStep  Int?
-  lastLoginAt  DateTime?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  lastLoginAt   DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
-  sessions       AdminSession[]
-  orderEvents    OrderEvent[]
-  customerNotes  CustomerNote[]
-  ticketMessages TicketMessage[]
-  assignedTickets Ticket[]
-  activity       ActivityLog[]
-  credits        CreditEntry[]
-  stockMovements StockMovement[]
+  sessions         AdminSession[]
+  orderEvents      OrderEvent[]
+  customerNotes    CustomerNote[]
+  ticketMessages   TicketMessage[]
+  assignedTickets  Ticket[]
+  activity         ActivityLog[]
+  credits          CreditEntry[]
+  stockMovements   StockMovement[]
+  affiliatePayouts AffiliatePayout[]
 }
 
 model AdminSession {
@@ -475,10 +480,10 @@ model AdminSession {
   adminId    String
   mfaPending Boolean   @default(false) // password accepted, still waiting for the authenticator code
   expiresAt  DateTime
-  ip        String?
-  userAgent String?
-  createdAt DateTime  @default(now())
-  admin     AdminUser @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  ip         String?
+  userAgent  String?
+  createdAt  DateTime  @default(now())
+  admin      AdminUser @relation(fields: [adminId], references: [id], onDelete: Cascade)
 
   @@index([adminId])
 }
@@ -495,4 +500,138 @@ model ActivityLog {
   admin     AdminUser? @relation(fields: [adminId], references: [id], onDelete: SetNull)
 
   @@index([createdAt])
+}
+
+// ───────────────────────────── Affiliates ─────────────────────────────
+
+// A partner who earns commission on orders placed with their code.
+// Their link (/r/CODE) shows visitors the code, so links and codes credit the same way.
+model Affiliate {
+  id                  String    @id @default(cuid())
+  code                String    @unique // upper case, e.g. SARAH10
+  name                String
+  email               String    @unique // stored lower case
+  passwordHash        String?
+  phone               String?
+  company             String?
+  website             String? // main site or social profile
+  socials             String? // other channels, free text
+  pitch               String? // from the application: how they plan to promote us
+  addressLine1        String?
+  addressLine2        String?
+  city                String?
+  postcode            String?
+  country             String    @default("United Kingdom")
+  taxRef              String? // UTR or VAT number, optional
+  // Payout bank details. Encrypted when ENCRYPTION_KEY is set (src/lib/crypto.ts).
+  bankAccountName     String?
+  bankSortCode        String?
+  bankAccountNumber   String?
+  bankIban            String?
+  bankBic             String?
+  bankUpdatedAt       DateTime?
+  commissionBps       Int       @default(1500) // 1500 = 15% of the order value after discounts, excluding delivery
+  customerDiscountPct Int       @default(10) // % off for customers using the code; 0 tracks without a discount
+  status              String    @default("pending") // pending | active | paused | rejected
+  notifySales         Boolean   @default(true) // email the affiliate when a sale is credited
+  notes               String? // team only
+  termsAcceptedAt     DateTime?
+  approvedAt          DateTime?
+  lastLoginAt         DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  sessions    AffiliateSession[]
+  tokens      AffiliateToken[]
+  clicks      AffiliateClick[]
+  commissions AffiliateCommission[]
+  payouts     AffiliatePayout[]
+  orders      Order[]
+
+  @@index([status])
+}
+
+// Affiliate portal sessions. `id` is the SHA-256 of the cookie token.
+model AffiliateSession {
+  id          String    @id
+  affiliateId String
+  expiresAt   DateTime
+  ip          String?
+  userAgent   String?
+  createdAt   DateTime  @default(now())
+  affiliate   Affiliate @relation(fields: [affiliateId], references: [id], onDelete: Cascade)
+
+  @@index([affiliateId])
+}
+
+// One-time links: invite (set a first password) and reset. `id` is the SHA-256 of the token.
+model AffiliateToken {
+  id          String    @id
+  affiliateId String
+  kind        String // invite | reset
+  expiresAt   DateTime
+  usedAt      DateTime?
+  createdAt   DateTime  @default(now())
+  affiliate   Affiliate @relation(fields: [affiliateId], references: [id], onDelete: Cascade)
+
+  @@index([affiliateId])
+}
+
+// A visit through an affiliate link. No IP address or cookie is stored.
+model AffiliateClick {
+  id          String    @id @default(cuid())
+  affiliateId String
+  landing     String // page the link pointed to
+  referrer    String? // referring site, host name only
+  createdAt   DateTime  @default(now())
+  affiliate   Affiliate @relation(fields: [affiliateId], references: [id], onDelete: Cascade)
+
+  @@index([affiliateId, createdAt])
+}
+
+// Money owed to an affiliate. One `sale` row per credited order; `clawback` rows recover
+// commission already paid on an order refunded later; `adjustment` rows are added by the team.
+model AffiliateCommission {
+  id          String           @id @default(cuid())
+  key         String?          @unique // idempotency key, e.g. sale:<orderId>
+  affiliateId String
+  kind        String           @default("sale") // sale | clawback | adjustment
+  orderId     String?
+  rateBps     Int              @default(0) // rate when the sale was credited
+  basis       Int              @default(0) // pence: order value after discounts and refunds, excluding delivery
+  amount      Int // pence (negative for clawbacks and deductions)
+  // pending (hold period) | approved (ready to pay) | paid | void
+  status      String           @default("pending")
+  description String?
+  approvedAt  DateTime?
+  paidAt      DateTime?
+  voidReason  String?
+  payoutId    String?
+  adminId     String?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  affiliate   Affiliate        @relation(fields: [affiliateId], references: [id], onDelete: Restrict)
+  order       Order?           @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  payout      AffiliatePayout? @relation(fields: [payoutId], references: [id], onDelete: SetNull)
+
+  @@index([affiliateId, status])
+  @@index([orderId])
+}
+
+// A payment sent to an affiliate, covering the commission rows linked to it.
+model AffiliatePayout {
+  id          String                @id @default(cuid())
+  affiliateId String
+  amount      Int // pence
+  method      String                @default("bank_transfer")
+  reference   String?
+  note        String?
+  paidAt      DateTime              @default(now())
+  adminId     String?
+  createdAt   DateTime              @default(now())
+  affiliate   Affiliate             @relation(fields: [affiliateId], references: [id], onDelete: Restrict)
+  admin       AdminUser?            @relation(fields: [adminId], references: [id], onDelete: SetNull)
+  commissions AffiliateCommission[]
+
+  @@index([affiliateId])
 }

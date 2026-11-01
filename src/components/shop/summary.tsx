@@ -37,6 +37,10 @@ export function useQuote(opts: { shippingMethodId?: string; email?: string; useC
   useEffect(() => {
     const saved = store<string>(PROMO_KEY);
     if (saved) setCodeState(saved);
+    // A code applied elsewhere on the page (the partner offer bar).
+    const onPromo = (e: Event) => setCodeState(String((e as CustomEvent<string>).detail || ''));
+    window.addEventListener('mt:promo', onPromo);
+    return () => window.removeEventListener('mt:promo', onPromo);
   }, []);
 
   const setCode = (c: string) => {

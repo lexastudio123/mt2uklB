@@ -11,6 +11,7 @@ import { CartDrawer } from '@/components/shop/cart-drawer';
 import { RuoGate } from '@/components/shop/gate';
 import { EmailCapture } from '@/components/shop/capture';
 import { ChatWidget } from '@/components/shop/chat';
+import { ReferralBar } from '@/components/shop/referral-bar';
 
 export default async function ShopLayout({ children }: { children: React.ReactNode }) {
   const [settings, catalog, customer, jar] = await Promise.all([getSettings(), getCatalog(), getCustomer(), cookies()]);
@@ -45,6 +46,7 @@ export default async function ShopLayout({ children }: { children: React.ReactNo
         </div>
       </aside>
       <SiteHeader />
+      {settings.affiliates.enabled && <ReferralBar />}
       <main id="app">{children}</main>
       <SiteFooter settings={settings} catalog={client} />
       <CartDrawer />

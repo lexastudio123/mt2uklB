@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { addEvent, cancelOrder, markPaid } from '@/lib/orders';
+import { syncCommission } from '@/lib/affiliates';
 import { describePayment, verifyWebhook } from '@/lib/payments/stripe';
 import { m2 } from '@/lib/money';
 
@@ -66,6 +67,7 @@ export async function POST(req: Request) {
           data: { refundedAmount: ch.amount_refunded, paymentStatus: full ? 'refunded' : 'partially_refunded', ...(full ? { status: 'refunded', refundedAt: new Date() } : {}) },
         });
         await addEvent(order.id, 'refund', `Refund recorded from Stripe: ${m2(ch.amount_refunded - order.refundedAmount)}`);
+        await syncCommission(order.id);
         break;
       }
     }

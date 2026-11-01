@@ -1,4 +1,5 @@
 import 'server-only';
+import { encryptionOn } from '../crypto';
 import { db } from '../db';
 import { bankTransferAvailable, cardPaymentsAvailable, type SiteSettings } from '../settings';
 import { emailConfigured } from '../email/send';
@@ -116,7 +117,17 @@ export async function launchChecklist(s: SiteSettings): Promise<CheckItem[]> {
         : 'Every owner signs in with a password and a code from their phone.',
       href: '/admin/account',
     },
-    { done: s.legalReviewed, label: 'Legal pages reviewed', detail: s.legalReviewed ? 'Marked as reviewed.' : 'Have a solicitor review terms, privacy and cookies, then tick “reviewed”.', href: '/admin/settings?tab=store' },
+    {
+      done: !s.affiliates.enabled || encryptionOn(),
+      label: 'Bank details encrypted',
+      detail: !s.affiliates.enabled
+        ? 'The affiliate programme is off.'
+        : encryptionOn()
+          ? 'Affiliate bank details are stored encrypted. Keep a copy of ENCRYPTION_KEY somewhere safe.'
+          : 'Set ENCRYPTION_KEY in the server .env file so affiliate bank details are stored encrypted.',
+      href: '/admin/affiliates',
+    },
+    { done: s.legalReviewed, label: 'Legal pages reviewed', detail: s.legalReviewed ? 'Marked as reviewed.' : 'Have a solicitor review terms, privacy, cookies and the affiliate rules, then tick “reviewed”.', href: '/admin/settings?tab=store' },
     {
       done: url.startsWith('https://') && !/localhost|127\.0\.0\.1/.test(url),
       label: 'Live web address',

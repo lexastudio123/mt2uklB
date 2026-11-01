@@ -39,6 +39,9 @@ export const PAYMENT_LABEL: Record<string, string> = { bank_transfer: 'Bank tran
 export const PAYMENT_STATUS_LABEL: Record<string, string> = { unpaid: 'Unpaid', paid: 'Paid', partially_refunded: 'Part refunded', refunded: 'Refunded' };
 export const PAYMENT_TONE: Record<string, string> = { unpaid: 'amber', paid: 'green', partially_refunded: 'red', refunded: 'red' };
 
+export const AFFILIATE_TONE: Record<string, string> = { pending: 'copper', active: 'green', paused: 'amber', rejected: '' };
+export const COMMISSION_TONE: Record<string, string> = { pending: 'amber', approved: 'blue', paid: 'green', void: '' };
+
 export const TICKET_LABEL: Record<string, string> = { open: 'Open', pending: 'Waiting on customer', closed: 'Closed' };
 export const TICKET_TONE: Record<string, string> = { open: 'copper', pending: 'amber', closed: '' };
 
@@ -89,4 +92,14 @@ export const TEMPLATE_LABEL: Record<string, string> = {
   team_new_order: 'Team: new order',
   team_new_ticket: 'Team: new message',
   team_ticket_reply: 'Team: customer reply',
+  affiliate_applied: 'Affiliate: application received',
+  affiliate_exists: 'Affiliate: already registered',
+  affiliate_invite: 'Affiliate: welcome and password',
+  affiliate_reset: 'Affiliate: password reset',
+  affiliate_rejected: 'Affiliate: application declined',
+  affiliate_sale: 'Affiliate: new sale',
+  affiliate_payout: 'Affiliate: payout sent',
+  affiliate_bank_changed: 'Affiliate: bank details changed',
+  team_affiliate_application: 'Team: affiliate application',
+  team_affiliate_bank_changed: 'Team: affiliate bank change',
 };

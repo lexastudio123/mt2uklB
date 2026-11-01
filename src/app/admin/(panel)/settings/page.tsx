@@ -17,6 +17,7 @@ import {
   savePaymentsAction,
   saveReferralAction,
   saveStoreAction,
+  saveAffiliateSettingsAction,
 } from './actions';
 
 export const metadata = { title: 'Settings' };
@@ -28,6 +29,7 @@ const TABS: [string, string][] = [
   ['checkout', 'Checkout'],
   ['marketing', 'Marketing'],
   ['referral', 'Referrals'],
+  ['affiliates', 'Affiliates'],
   ['chat', 'Chat'],
   ['other', 'Returns and VAT'],
 ];
@@ -413,6 +415,58 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
                 <input id="credit" name="credit" inputMode="decimal" defaultValue={toPounds(s.referral.creditPence)} />
                 <span className="hint">Added to their account when the friend&apos;s order is dispatched.</span>
               </div>
+            </div>
+            <Save />
+          </div>
+        </form>
+      )}
+
+      {tab === 'affiliates' && (
+        <form action={saveAffiliateSettingsAction} className="a-card" style={{ maxWidth: 820 }}>
+          <div className="a-form">
+            <label className="a-check">
+              <input type="checkbox" name="enabled" defaultChecked={s.affiliates.enabled} />
+              <span>
+                Affiliate programme
+                <small>
+                  Affiliate codes work at checkout and the programme pages are live. Turning this off stops new orders being credited; existing commission is
+                  unaffected. Manage affiliates under <Link href="/admin/affiliates">Affiliates</Link>.
+                </small>
+              </span>
+            </label>
+            <label className="a-check">
+              <input type="checkbox" name="applicationsOpen" defaultChecked={s.affiliates.applicationsOpen} />
+              <span>
+                Accept applications
+                <small>Anyone can apply at {siteUrl().replace(/^https?:\/\//, '')}/affiliates/apply. Every application waits for your approval.</small>
+              </span>
+            </label>
+            <div className="a-row2">
+              <div className="a-field mono">
+                <label htmlFor="commissionPct">Starting commission (%)</label>
+                <input id="commissionPct" name="commissionPct" inputMode="decimal" defaultValue={s.affiliates.commissionPct} />
+                <span className="hint">Of the order value after discounts, excluding delivery. Set a different rate for each affiliate on their page.</span>
+              </div>
+              <div className="a-field mono">
+                <label htmlFor="affDiscountPct">Starting customer discount (%)</label>
+                <input id="affDiscountPct" name="discountPct" type="number" min={0} max={50} defaultValue={s.affiliates.discountPct} />
+                <span className="hint">What customers get off with an affiliate&apos;s code. 0 credits the affiliate without a discount.</span>
+              </div>
+              <div className="a-field mono">
+                <label htmlFor="holdDays">Hold period (days after dispatch)</label>
+                <input id="holdDays" name="holdDays" type="number" min={0} max={120} defaultValue={s.affiliates.holdDays} />
+                <span className="hint">Commission becomes ready to pay after this, so returns and refunds settle first.</span>
+              </div>
+              <div className="a-field mono">
+                <label htmlFor="minPayout">Minimum payout (£)</label>
+                <input id="minPayout" name="minPayout" inputMode="decimal" defaultValue={toPounds(s.affiliates.minPayout)} />
+                <span className="hint">Shown to affiliates; smaller balances roll over to the next payout.</span>
+              </div>
+            </div>
+            <div className="a-field">
+              <label htmlFor="payoutSchedule">How and when you pay</label>
+              <input id="payoutSchedule" name="payoutSchedule" defaultValue={s.affiliates.payoutSchedule} maxLength={200} />
+              <span className="hint">Shown in the affiliate portal and on the programme page.</span>
             </div>
             <Save />
           </div>

@@ -7,6 +7,7 @@ const pages = [
   '/', '/shop', '/science', '/lot-reports', '/help', '/delivery', '/returns', '/about', '/contact',
   '/terms', '/privacy', '/cookies', '/search?q=mt2', '/track', '/account', '/basket', '/checkout',
   '/admin/login', '/sitemap.xml', '/robots.txt', '/api/health',
+  '/affiliates', '/affiliates/apply', '/affiliates/login', '/affiliates/terms',
 ];
 
 let failed = 0;
@@ -35,6 +36,18 @@ try {
   }
 } catch (e) {
   check(false, 'sitemap', e.message);
+}
+
+// Affiliate links redirect on this site only; the portal needs a sign in.
+try {
+  const r = await fetch(base + '/r/TEST?to=//example.com', { redirect: 'manual' });
+  const to = r.headers.get('location') || '';
+  const dest = new URL(to, base);
+  check(r.status === 302 && dest.hostname !== 'example.com' && dest.searchParams.get('ref') === 'TEST', 'affiliate link stays on site', to);
+  const p = await fetch(base + '/affiliates/portal', { redirect: 'manual' });
+  check(p.status === 307 || p.status === 303 || p.status === 302, 'affiliate portal needs sign in', String(p.status));
+} catch (e) {
+  check(false, 'affiliate checks', e.message);
 }
 
 // Unknown pages must 404, admin must not be open.

@@ -5,6 +5,7 @@ import { can, requireArea } from '@/lib/admin/perms';
 import { currentLotCodes, type SP } from '@/lib/admin/queries';
 import { EVENT_LABEL, fd, fdt, PAYMENT_LABEL } from '@/lib/admin/format';
 import { m2, toPounds } from '@/lib/money';
+import { COMMISSION_LABEL } from '@/lib/affiliates';
 import { Flash, OrderPill, PageHead, PaymentPill, Pill, Thumb } from '@/components/admin/ui';
 import { SubmitButton } from '@/components/admin/client';
 import {
@@ -35,6 +36,8 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
       events: { orderBy: { createdAt: 'desc' }, include: { admin: { select: { name: true } } } },
       customer: { select: { id: true, name: true, email: true, phone: true, passwordHash: true, tags: true, blocked: true, creditPence: true } },
       referrer: { select: { id: true, name: true, email: true } },
+      affiliate: { select: { id: true, name: true, code: true } },
+      commissions: { where: { kind: 'sale' }, select: { amount: true, status: true, rateBps: true } },
     },
   });
   if (!o) notFound();
@@ -486,6 +489,25 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
                           {o.referrer.name || o.referrer.email}
                         </Link>
                       </>
+                    )}
+                  </dd>
+                </>
+              )}
+              {o.affiliate && (
+                <>
+                  <dt>Affiliate</dt>
+                  <dd>
+                    <Link className="a-link" href={`/admin/affiliates/${o.affiliate.id}`}>
+                      {o.affiliate.name}
+                    </Link>
+                    {o.commissions[0] ? (
+                      <span className="a-small" style={{ display: 'block' }}>
+                        {m2(o.commissions[0].amount)} commission at {o.commissions[0].rateBps / 100}% · {COMMISSION_LABEL[o.commissions[0].status]?.toLowerCase() ?? o.commissions[0].status}
+                      </span>
+                    ) : (
+                      <span className="a-small" style={{ display: 'block' }}>
+                        Commission is credited once the order is paid
+                      </span>
                     )}
                   </dd>
                 </>

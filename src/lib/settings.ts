@@ -36,6 +36,15 @@ export type SiteSettings = {
   checkout: { ruoText: string; minAge: number };
   marketing: { popupEnabled: boolean; popupDelay: number; welcomeCode: string; welcomePct: number };
   referral: { enabled: boolean; discountPct: number; creditPence: number };
+  affiliates: {
+    enabled: boolean; // partner codes work at checkout and the programme pages are live
+    applicationsOpen: boolean;
+    commissionPct: number; // starting rate for new affiliates, e.g. 15 or 12.5
+    discountPct: number; // starting customer discount on their code
+    holdDays: number; // days after dispatch before commission is ready to pay (covers returns)
+    minPayout: number; // pence
+    payoutSchedule: string; // shown to affiliates
+  };
   chat: { enabled: boolean; aiEnabled: boolean };
   returnsDays: number;
   vatRate: number;
@@ -84,6 +93,15 @@ export const DEFAULT_SETTINGS: SiteSettings = {
   },
   marketing: { popupEnabled: true, popupDelay: 25, welcomeCode: 'WELCOME10', welcomePct: 10 },
   referral: { enabled: true, discountPct: 10, creditPence: 500 },
+  affiliates: {
+    enabled: true,
+    applicationsOpen: true,
+    commissionPct: 15,
+    discountPct: 10,
+    holdDays: 30,
+    minPayout: 5000,
+    payoutSchedule: 'Monthly by bank transfer, in the first week of the month',
+  },
   chat: { enabled: true, aiEnabled: true },
   returnsDays: 30,
   vatRate: 20,

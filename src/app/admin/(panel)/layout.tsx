@@ -6,10 +6,11 @@ import { adminLogout } from './actions';
 
 export default async function PanelLayout({ children }: { children: React.ReactNode }) {
   const admin = await requireAdmin('staff');
-  const [awaiting, toPack, openTickets] = await Promise.all([
+  const [awaiting, toPack, openTickets, applications] = await Promise.all([
     db.order.count({ where: { status: 'awaiting_payment' } }),
     db.order.count({ where: { status: { in: ['paid', 'packed'] } } }),
     db.ticket.count({ where: { status: 'open' } }),
+    db.affiliate.count({ where: { status: 'pending' } }),
   ]);
   const all: (NavItem & { area: Area })[] = [
     { href: '/admin', label: 'Dashboard', icon: 'dashboard', area: 'dashboard' },
@@ -19,6 +20,7 @@ export default async function PanelLayout({ children }: { children: React.ReactN
     { href: '/admin/products', label: 'Products', icon: 'products', area: 'products', section: 'Catalogue' },
     { href: '/admin/lots', label: 'Lot reports', icon: 'lots', area: 'lots', section: 'Catalogue' },
     { href: '/admin/discounts', label: 'Discounts', icon: 'discounts', area: 'discounts', section: 'Catalogue' },
+    { href: '/admin/affiliates', label: 'Affiliates', icon: 'affiliates', area: 'affiliates', count: applications, section: 'Marketing' },
     { href: '/admin/subscribers', label: 'Subscribers', icon: 'subscribers', area: 'subscribers', section: 'Marketing' },
     { href: '/admin/emails', label: 'Emails', icon: 'emails', area: 'emails', section: 'Marketing' },
     { href: '/admin/settings', label: 'Settings', icon: 'settings', area: 'settings', section: 'Store' },

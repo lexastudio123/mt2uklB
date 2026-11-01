@@ -12,11 +12,12 @@ import { OrderError, addEvent, cancelOrder, expireStaleOrders, markPaid, notifyT
 import { createCheckoutSession } from './payments/stripe';
 import { newToken } from './security';
 import { m2, money } from './money';
+import { activeAffiliateByCode, syncCommission } from './affiliates';
 
 // ───────────── Discount and referral codes ─────────────
 
 export type CodeResult =
-  | { ok: true; code: string; kind: 'discount' | 'referral'; amount: number; label: string; referrerId?: string }
+  | { ok: true; code: string; kind: 'discount' | 'referral' | 'affiliate'; amount: number; label: string; referrerId?: string; affiliateId?: string }
   | { ok: false; code: string; message: string };
 
 async function hasPriorOrders(email: string): Promise<boolean> {
@@ -40,6 +41,12 @@ export async function evaluateCode(
     if (dc.firstOrderOnly && ctx.email && (await hasPriorOrders(ctx.email))) return no('That code is for a first order only.');
     const amount = dc.kind === 'fixed' ? Math.min(dc.value, ctx.subtotal) : Math.round((ctx.subtotal * dc.value) / 100);
     return { ok: true, code, kind: 'discount', amount, label: dc.kind === 'fixed' ? `${money(dc.value)} off` : `${dc.value}% off` };
+  }
+  const partner = await activeAffiliateByCode(code, ctx.settings);
+  if (partner) {
+    if (ctx.email && partner.email === ctx.email.toLowerCase()) return { ok: false, code, message: 'You cannot use your own affiliate code.' };
+    const pct = partner.customerDiscountPct;
+    return { ok: true, code, kind: 'affiliate', amount: Math.round((ctx.subtotal * pct) / 100), label: pct > 0 ? `${pct}% off` : 'Partner code', affiliateId: partner.id };
   }
   if (ctx.settings.referral.enabled) {
     const ref = await db.customer.findUnique({ where: { referralCode: code }, select: { id: true, email: true, blocked: true } });
@@ -186,6 +193,7 @@ export async function placeOrder(raw: unknown, ctx: { customer: Customer | null;
           accessToken,
           customerId,
           referrerId: code?.kind === 'referral' ? code.referrerId ?? null : null,
+          affiliateId: code?.kind === 'affiliate' ? code.affiliateId ?? null : null,
           email: d.email,
           name: d.name,
           phone: d.phone || null,
@@ -270,6 +278,7 @@ export async function placeOrder(raw: unknown, ctx: { customer: Customer | null;
 
   const order = await db.order.findUniqueOrThrow({ where: { id: orderId }, include: { items: true } });
   if (free) {
+    await syncCommission(order.id);
     await sendOrderEmail(order, 'confirmed');
     await notifyTeamNewOrder(order);
     return { ok: true, redirect: `/order/${accessToken}` };

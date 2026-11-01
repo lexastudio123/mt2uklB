@@ -7,6 +7,7 @@ import * as T from './email/templates';
 import { refundPayment, stripeConfigured } from './payments/stripe';
 import { royalMailTrackingUrl } from './site';
 import { m2 } from './money';
+import { syncCommission } from './affiliates';
 
 export const ORDER_STATUSES = ['awaiting_payment', 'paid', 'packed', 'dispatched', 'delivered', 'cancelled', 'refunded'] as const;
 export type OrderStatus = (typeof ORDER_STATUSES)[number];
@@ -149,6 +150,7 @@ export async function markPaid(orderId: string, opts: { adminId?: string | null;
     });
     return true;
   });
+  if (changed) await syncCommission(orderId);
   const order = await load(orderId);
   if (changed && opts.notify !== false) {
     await sendOrderEmail(order, 'confirmed', { adminId: opts.adminId });
@@ -201,6 +203,7 @@ export async function dispatchOrder(
       }
     }
   });
+  await syncCommission(orderId);
   const order = await load(orderId);
   if (opts.notify !== false) {
     const c = order.customerId ? await db.customer.findUnique({ where: { id: order.customerId }, select: { shippingUpdates: true } }) : null;
@@ -235,6 +238,7 @@ export async function cancelOrder(orderId: string, opts: { adminId?: string | nu
     await tx.orderEvent.create({ data: { orderId: o.id, type: 'status', message: `Cancelled${opts.reason ? `: ${opts.reason}` : ''}.${owed}`, adminId: opts.adminId ?? null } });
     return true;
   });
+  if (r) await syncCommission(orderId);
   const order = await load(orderId);
   if (r && opts.notify !== false) await sendOrderEmail(order, 'cancelled', { reason: opts.reason, adminId: opts.adminId });
   return order;
@@ -269,6 +273,7 @@ export async function refundOrder(orderId: string, opts: { adminId?: string | nu
     if (opts.restock && o.status !== 'cancelled') await releaseStock(tx, o.id, o.items, 'refund', opts.adminId);
     await tx.orderEvent.create({ data: { orderId: o.id, type: 'refund', message: `${m2(amount)} ${how}${opts.reason ? `: ${opts.reason}` : ''}`, adminId: opts.adminId ?? null } });
   });
+  await syncCommission(orderId);
   const order = await load(orderId);
   if (opts.notify !== false) await sendOrderEmail(order, 'refunded', { amount, adminId: opts.adminId });
   return order;

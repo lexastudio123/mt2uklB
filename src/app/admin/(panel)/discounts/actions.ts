@@ -12,6 +12,7 @@ async function readDiscount(fd: FormData) {
   const code = str(fd, 'code', 40).toUpperCase().replace(/\s+/g, '');
   if (!/^[A-Z0-9][A-Z0-9_-]{2,39}$/.test(code)) throw new UserError('Codes use 3 to 40 letters, numbers, dashes or underscores, like SPRING15.');
   if (code.startsWith('MT-')) throw new UserError('Codes starting MT- are reserved for customer referral codes.');
+  if (await db.affiliate.findUnique({ where: { code }, select: { id: true } })) throw new UserError(`${code} is an affiliate's code. Choose another name.`);
   const kind = str(fd, 'kind') === 'fixed' ? 'fixed' : 'percent';
   const value = kind === 'percent' ? int(fd, 'value', { min: 1, max: 100, label: 'Percentage' }) : pounds(fd, 'value', { min: 1, label: 'Amount off' });
   const minSubtotal = str(fd, 'minSubtotal') ? pounds(fd, 'minSubtotal', { min: 0, label: 'Minimum spend' }) : 0;

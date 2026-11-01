@@ -3,7 +3,8 @@ import { redirect } from 'next/navigation';
 import { db } from '@/lib/db';
 import { can, requireArea } from '@/lib/admin/perms';
 import { sp1, type SP } from '@/lib/admin/queries';
-import { fd } from '@/lib/admin/format';
+import { AFFILIATE_TONE, fd } from '@/lib/admin/format';
+import { AFFILIATE_STATUS_LABEL } from '@/lib/affiliates';
 import { m2 } from '@/lib/money';
 import { Empty, OrderPill, PageHead, Pill, TicketPill } from '@/components/admin/ui';
 
@@ -18,7 +19,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
       <>
         <PageHead title="Search" />
         <Empty title="Type something to search">
-          <p style={{ margin: 0 }}>Order numbers, emails, names, postcodes, lot codes and conversation references.</p>
+          <p style={{ margin: 0 }}>Order numbers, emails, names, postcodes, lot codes, affiliate codes and conversation references.</p>
         </Empty>
       </>
     );
@@ -29,7 +30,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
   const exact = await db.order.findUnique({ where: { number: up }, select: { id: true } });
   if (exact) redirect(`/admin/orders/${exact.id}`);
 
-  const [orders, customers, lots, tickets] = await Promise.all([
+  const [orders, customers, lots, tickets, affiliates] = await Promise.all([
     db.order.findMany({
       where: { OR: [{ number: { contains: up } }, { email: { contains: low } }, { name: { contains: q } }, { shipPostcode: { contains: q.toUpperCase() } }, { trackingNumber: { contains: up } }] },
       orderBy: { createdAt: 'desc' },
@@ -40,8 +41,15 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
     can(admin, 'inbox')
       ? db.ticket.findMany({ where: { OR: [{ ref: { contains: up } }, { email: { contains: low } }, { name: { contains: q } }, { topic: { contains: q } }] }, orderBy: { lastMessageAt: 'desc' }, take: 15 })
       : Promise.resolve([]),
+    can(admin, 'affiliates')
+      ? db.affiliate.findMany({
+          where: { OR: [{ code: { contains: up } }, { email: { contains: low } }, { name: { contains: q } }, { company: { contains: q } }] },
+          orderBy: { createdAt: 'desc' },
+          take: 10,
+        })
+      : Promise.resolve([]),
   ]);
-  const none = !orders.length && !customers.length && !lots.length && !tickets.length;
+  const none = !orders.length && !customers.length && !lots.length && !tickets.length && !affiliates.length;
 
   return (
     <div className="a-searchres">
@@ -116,6 +124,31 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
                   <td>{l.product.name}</td>
                   <td className="num">{l.purity}%</td>
                   <td>{l.isCurrent ? <Pill tone="green">Current</Pill> : <Pill plain>Archived</Pill>}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {affiliates.length > 0 && (
+        <div className="a-card flush" style={{ marginBottom: 16 }}>
+          <h2 className="a-h2">Affiliates</h2>
+          <table className="a-table" style={{ marginTop: 10 }}>
+            <tbody>
+              {affiliates.map((a) => (
+                <tr key={a.id}>
+                  <td>
+                    <Link className="a-rowlink" href={`/admin/affiliates/${a.id}`}>
+                      {a.name}
+                    </Link>
+                    <span className="a-small">{a.email}</span>
+                  </td>
+                  <td>
+                    <span className="a-code">{a.code}</span>
+                  </td>
+                  <td>
+                    <Pill tone={AFFILIATE_TONE[a.status] ?? ''}>{AFFILIATE_STATUS_LABEL[a.status] ?? a.status}</Pill>
+                  </td>
                 </tr>
               ))}
             </tbody>

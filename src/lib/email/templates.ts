@@ -1,5 +1,5 @@
 import 'server-only';
-import type { Order, OrderItem, Ticket } from '@prisma/client';
+import type { Affiliate, AffiliatePayout, Order, OrderItem, Ticket } from '@prisma/client';
 import { m2 } from '../money';
 import type { SiteSettings } from '../settings';
 import { siteUrl } from '../site';
@@ -227,3 +227,106 @@ export function adminNewTicket(s: SiteSettings, t: Ticket, message: string): Ren
     button(`${siteUrl()}/admin/inbox/${t.id}`, 'Reply in admin');
   return { subject: `New message from ${t.name}: ${t.topic}`, html: layout(s, body) };
 }
+
+// ─────────────────── Affiliates ───────────────────
+
+const first = (name: string) => esc(name.trim().split(/\s+/)[0] || 'there');
+const pctOf = (bps: number) => `${Number((bps / 100).toFixed(2))}%`;
+const bigCode = (code: string) =>
+  `<p style="margin:0 0 16px;font-family:Menlo,monospace;font-size:26px;font-weight:700;letter-spacing:.08em;color:${C.ink}">${esc(code)}</p>`;
+const portal = (path = '') => `${siteUrl()}/affiliates/portal${path}`;
+
+export function affiliateApplied(s: SiteSettings, name: string): Rendered {
+  const body =
+    h1('Application received') +
+    p(`Thanks, ${first(name)}. We review every application by hand and reply by email within a few working days.`) +
+    p('While you wait, have a read of the programme rules. Everything you post has to stay within laboratory research: no claims about tanning, doses or use in people.', `color:${C.umber};font-size:14px`) +
+    button(`${siteUrl()}/affiliates/terms`, 'Read the programme rules');
+  return { subject: `Your ${s.storeName} affiliate application`, html: layout(s, body) };
+}
+
+export function affiliateAlreadyRegistered(s: SiteSettings): Rendered {
+  const body =
+    h1('You already have an account') +
+    p('Someone, hopefully you, just applied to the affiliate programme with this email address. It already has an affiliate account, so there is nothing new to set up.') +
+    p('If you have forgotten your password, use the link on the sign in page to choose a new one.', `color:${C.umber};font-size:14px`) +
+    button(`${siteUrl()}/affiliates/login`, 'Sign in to the affiliate portal') +
+    small('If this was not you, you can ignore this email.');
+  return { subject: `Your ${s.storeName} affiliate account`, html: layout(s, body) };
+}
+
+export function affiliateApproved(s: SiteSettings, a: Pick<Affiliate, 'name' | 'code' | 'commissionBps' | 'customerDiscountPct'>, link: string): Rendered {
+  const offer = a.customerDiscountPct > 0 ? `Customers get <b>${a.customerDiscountPct}% off</b> with it, and you earn` : 'Orders placed with it are credited to you, and you earn';
+  const body =
+    h1('Your account is ready') +
+    p(`Good news, ${first(a.name)}: you are on the ${esc(s.storeName)} affiliate programme. Your code is`) +
+    bigCode(a.code) +
+    p(`${offer} <b>${pctOf(a.commissionBps)}</b> of the order value after discounts, excluding delivery.`) +
+    p(`Your link: <a href="${siteUrl()}/r/${esc(a.code)}" style="color:${C.ink}">${siteUrl()}/r/${esc(a.code)}</a>`, 'font-size:14px') +
+    button(link, 'Choose your password') +
+    small('The button works once and expires in 7 days. After that, use “Forgot your password?” on the sign in page.');
+  return { subject: `Your ${s.storeName} affiliate account is ready`, html: layout(s, body) };
+}
+
+export function affiliateRejected(s: SiteSettings, name: string): Rendered {
+  const body =
+    h1('Your application') +
+    p(`Thanks for applying, ${first(name)}. We are not able to offer you a place on the affiliate programme at the moment.`) +
+    p('This is usually down to the audience or how the products would be promoted. You are welcome to apply again in future.', `color:${C.umber};font-size:14px`);
+  return { subject: `Your ${s.storeName} affiliate application`, html: layout(s, body) };
+}
+
+export function affiliateReset(s: SiteSettings, link: string): Rendered {
+  const body =
+    h1('Reset your password') +
+    p('Use the button below to choose a new password for the affiliate portal. The link works once and expires in one hour.') +
+    button(link, 'Choose a new password') +
+    small('If you did not ask for this, you can ignore this email. Your password has not changed.');
+  return { subject: `Reset your ${s.storeName} affiliate password`, html: layout(s, body) };
+}
+
+export function affiliateSale(s: SiteSettings, a: Pick<Affiliate, 'name'>, c: { amount: number; basis: number; orderTail: string }): Rendered {
+  const body =
+    h1(`${m2(c.amount)} commission`) +
+    p(`Nice work, ${first(a.name)}. An order ending ${esc(c.orderTail)} used your code, with an order value of ${m2(c.basis)} after discounts.`) +
+    p(`The commission is ready to pay ${s.affiliates.holdDays} days after the order is dispatched, once the returns window has passed.`, `color:${C.umber};font-size:14px`) +
+    button(portal(), 'View your sales') +
+    small('To stop these emails, untick “Email me for each sale” under Your details in the portal.');
+  return { subject: `You earned ${m2(c.amount)} commission`, html: layout(s, body) };
+}
+
+export function affiliatePayout(s: SiteSettings, a: Pick<Affiliate, 'name'>, payout: Pick<AffiliatePayout, 'amount' | 'reference'>): Rendered {
+  const body =
+    h1('Payout sent') +
+    p(`Hi ${first(a.name)}, we have sent <b>${m2(payout.amount)}</b> to your bank account${payout.reference ? `, reference <b>${esc(payout.reference)}</b>` : ''}.`) +
+    p('It should reach you within one working day. The sales it covers are listed in your portal.', `color:${C.umber};font-size:14px`) +
+    button(portal('/payouts'), 'View your payouts');
+  return { subject: `Payout of ${m2(payout.amount)} sent`, html: layout(s, body) };
+}
+
+export function affiliateBankChanged(s: SiteSettings, name: string): Rendered {
+  const body =
+    h1('Bank details changed') +
+    p(`Hi ${first(name)}, the bank details for your affiliate payouts were just changed.`) +
+    p('If this was you, there is nothing else to do. If it was not, reply to this email straight away and we will hold your payouts while we check.') +
+    button(portal('/details'), 'Check your details');
+  return { subject: `Your ${s.storeName} affiliate bank details were changed`, html: layout(s, body) };
+}
+
+export function adminAffiliateApplication(s: SiteSettings, a: Pick<Affiliate, 'id' | 'name' | 'email' | 'website' | 'pitch'>): Rendered {
+  const body =
+    h1('New affiliate application') +
+    p(`<b>${esc(a.name)}</b> &lt;${esc(a.email)}&gt;${a.website ? `<br>${esc(a.website)}` : ''}`) +
+    (a.pitch ? `<div style="font-size:15px;line-height:1.6;padding:14px 16px;background:${C.milk};border-radius:4px">${esc(a.pitch).replace(/\n/g, '<br>')}</div>` : '') +
+    button(`${siteUrl()}/admin/affiliates/${a.id}`, 'Review in admin');
+  return { subject: `New affiliate application: ${a.name}`, html: layout(s, body) };
+}
+
+export function adminAffiliateBankChanged(s: SiteSettings, a: Pick<Affiliate, 'id' | 'name' | 'code'>): Rendered {
+  const body =
+    h1('Affiliate bank details changed') +
+    p(`<b>${esc(a.name)}</b> (${esc(a.code)}) changed the bank account their payouts go to. Make sure the change is genuine before the next payout.`) +
+    button(`${siteUrl()}/admin/affiliates/${a.id}`, 'Open in admin');
+  return { subject: `Bank details changed: ${a.name} (${a.code})`, html: layout(s, body) };
+}
+

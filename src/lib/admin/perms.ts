@@ -16,6 +16,8 @@ export const AREA_MIN = {
   lots: 'staff',
   lotEdit: 'admin',
   discounts: 'admin',
+  affiliates: 'staff',
+  affiliateEdit: 'admin', // approve, edit, bank details, commission and payouts
   subscribers: 'admin',
   emails: 'admin',
   settings: 'admin',

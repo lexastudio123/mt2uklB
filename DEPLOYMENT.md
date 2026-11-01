@@ -22,7 +22,7 @@ The shop is one Node.js app with a SQLite database file and an uploads folder. T
    cp .env.example .env
    nano .env
    ```
-   Set at least `SITE_URL=https://yourdomain.co.uk`, `DOMAIN=yourdomain.co.uk`, the `SMTP_*` lines, `MAIL_FROM` and a long random `CRON_SECRET` (`openssl rand -hex 24`).
+   Set at least `SITE_URL=https://yourdomain.co.uk`, `DOMAIN=yourdomain.co.uk`, the `SMTP_*` lines, `MAIL_FROM`, a long random `CRON_SECRET` (`openssl rand -hex 24`) and an `ENCRYPTION_KEY` for affiliate bank details (`openssl rand -base64 32`). Save a copy of the encryption key in your password manager: backups of the database are no use for bank details without it.
 
 4. **Start it:**
    ```bash
@@ -83,7 +83,8 @@ Copy `deploy/Caddyfile.host` to `/etc/caddy/Caddyfile`, replace the domain, then
 Add these with `crontab -e` on the server.
 
 ```cron
-# Every hour: cancel unpaid orders past their window (returns the stock), tidy old sessions
+# Every hour: cancel unpaid orders past their window (returns the stock), approve affiliate
+# commission whose hold period has ended, tidy old sessions
 0 * * * * curl -fsS "https://yourdomain.co.uk/api/cron?key=YOUR_CRON_SECRET" > /dev/null
 
 # Every night at 03:15: back up the database and uploads (Docker)
@@ -147,7 +148,9 @@ The admin dashboard shows most of these as it goes.
 - [ ] Bank details and/or card payments set up, and a real test order placed and refunded
 - [ ] Real lot results and certificates uploaded in Admin › Lots, the sample lots unpublished
 - [ ] Stock levels checked in Admin › Products
-- [ ] Terms, privacy and cookies reviewed by a solicitor, then "Legal pages reviewed" ticked
+- [ ] Terms, privacy, cookies and the affiliate programme rules reviewed by a solicitor, then "Legal pages reviewed" ticked
+- [ ] Affiliate programme settings checked (commission, customer discount, hold period, minimum payout), or the programme switched off in Admin › Settings › Affiliates
+- [ ] `ENCRYPTION_KEY` set and a copy stored safely
 - [ ] "Hide from search engines" switched off in Admin › Settings when you are ready to be found
 - [ ] Hourly cron and nightly backups added, and one backup restored as a test
 - [ ] Remove `ADMIN_PASSWORD` from `.env` after the first login

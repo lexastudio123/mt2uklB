@@ -4,6 +4,7 @@ import { logActivity } from '@/lib/activity';
 import { can } from '@/lib/admin/perms';
 import { csvResponse, pounds } from '@/lib/admin/csv';
 import { customerTotals, customersWhere, ordersWhere, type SP } from '@/lib/admin/queries';
+import { EMPTY_BALANCE, balances, readBank } from '@/lib/affiliates';
 
 const MAX = 50_000;
 
@@ -75,6 +76,45 @@ export async function GET(req: Request, { params }: { params: Promise<{ kind: st
     });
     await logActivity(admin.id, 'export.subscribers', 'subscriber', undefined, `${subs.length} rows`);
     return csvResponse('subscribers', [['Email', 'Source', 'Joined', 'Unsubscribed'], ...subs.map((s) => [s.email, s.source, s.createdAt, s.unsubscribedAt])]);
+  }
+
+  if (kind === 'affiliates') {
+    const status = String(sp.status ?? '');
+    const q = String(sp.q ?? '').trim();
+    const rows = await db.affiliate.findMany({
+      where: {
+        ...(status ? { status } : {}),
+        ...(q ? { OR: [{ name: { contains: q } }, { email: { contains: q.toLowerCase() } }, { code: { contains: q.toUpperCase() } }, { company: { contains: q } }] } : {}),
+      },
+      orderBy: { createdAt: 'desc' },
+      take: MAX,
+    });
+    const bal = await balances(rows.map((r) => r.id));
+    await logActivity(admin.id, 'export.affiliates', 'affiliate', undefined, `${rows.length} rows`);
+    return csvResponse('affiliates', [
+      ['Name', 'Email', 'Phone', 'Company', 'Code', 'Status', 'Commission %', 'Customer discount %', 'Orders', 'Sales', 'Pending', 'Ready to pay', 'Paid', 'Website', 'Joined', 'Last signed in'],
+      ...rows.map((a) => {
+        const b = bal.get(a.id) ?? EMPTY_BALANCE;
+        return [a.name, a.email, a.phone, a.company, a.code, a.status, a.commissionBps / 100, a.customerDiscountPct, b.sales, pounds(b.salesValue), pounds(b.pending), pounds(b.approved), pounds(b.paid), a.website, a.approvedAt ?? a.createdAt, a.lastLoginAt];
+      }),
+    ]);
+  }
+
+  if (kind === 'affiliate-payouts') {
+    // Everyone with commission ready to pay, with bank details, for a bulk payment in online banking.
+    if (!can(admin, 'affiliateEdit')) return new Response('Forbidden', { status: 403 });
+    const bal = await balances();
+    const due = [...bal].filter(([, b]) => b.approved > 0);
+    const rows = await db.affiliate.findMany({ where: { id: { in: due.map(([id]) => id) } }, orderBy: { name: 'asc' } });
+    await logActivity(admin.id, 'export.affiliate_payouts', 'affiliate', undefined, `${rows.length} rows with bank details`);
+    const stamp = new Date().toLocaleDateString('en-GB', { month: 'short', year: '2-digit', timeZone: 'Europe/London' }).replace(' ', '').toUpperCase();
+    return csvResponse('affiliate-payouts', [
+      ['Name', 'Email', 'Code', 'Amount', 'Account name', 'Sort code', 'Account number', 'IBAN', 'BIC', 'Reference', 'Bank details changed'],
+      ...rows.map((a) => {
+        const k = readBank(a);
+        return [a.name, a.email, a.code, pounds(bal.get(a.id)?.approved ?? 0), k.accountName, k.sortCode, k.accountNumber, k.iban, k.bic, `${a.code} ${stamp}`.slice(0, 18), a.bankUpdatedAt];
+      }),
+    ]);
   }
 
   return new Response('Unknown export', { status: 404 });

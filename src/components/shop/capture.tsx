@@ -48,7 +48,7 @@ export function NewsForm() {
 }
 
 const CAP_KEY = 'mt-cap';
-const HIDDEN_ON = ['/checkout', '/basket', '/order', '/account', '/support'];
+const HIDDEN_ON = ['/checkout', '/basket', '/order', '/account', '/support', '/affiliates'];
 
 /** First-order discount pop-up: after a delay or once the visitor has scrolled through most of a page. */
 export function EmailCapture() {

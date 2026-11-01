@@ -194,6 +194,31 @@ export async function saveReferralAction(fd: FormData) {
   back(to('referral'), r);
 }
 
+export async function saveAffiliateSettingsAction(fd: FormData) {
+  const a = await requireArea('settings');
+  let r: R;
+  try {
+    const commission = Number(str(fd, 'commissionPct', 10).replace('%', ''));
+    if (!Number.isFinite(commission) || commission < 0 || commission > 50) throw new UserError('Commission must be between 0% and 50%.');
+    await saveSettings({
+      affiliates: {
+        enabled: bool(fd, 'enabled'),
+        applicationsOpen: bool(fd, 'applicationsOpen'),
+        commissionPct: Math.round(commission * 100) / 100,
+        discountPct: int(fd, 'discountPct', { min: 0, max: 50, label: 'Customer discount' }),
+        holdDays: int(fd, 'holdDays', { min: 0, max: 120, label: 'Hold period' }),
+        minPayout: pounds(fd, 'minPayout', { min: 0, label: 'Minimum payout' }),
+        payoutSchedule: str(fd, 'payoutSchedule', 200) || 'Monthly by bank transfer',
+      },
+    });
+    await logActivity(a.id, 'settings.affiliates', 'settings', 'affiliates');
+    r = { ok: 'Affiliate settings saved.' };
+  } catch (e) {
+    r = { err: errorMessage(e) };
+  }
+  back(to('affiliates'), r);
+}
+
 export async function saveChatAction(fd: FormData) {
   const a = await requireArea('settings');
   let r: R;

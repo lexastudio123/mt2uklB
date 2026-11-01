@@ -75,12 +75,13 @@ export function OpenChatButton({ className, children, style }: { className?: str
   );
 }
 
-export function CopyButton({ text, className = 'k-btn sm' }: { text: string; className?: string }) {
+export function CopyButton({ text, className = 'k-btn sm', label }: { text: string; className?: string; label?: string }) {
   const [done, setDone] = useState(false);
   return (
     <button
       type="button"
       className={className}
+      aria-label={label && !done ? label : undefined}
       onClick={async () => {
         try {
           await navigator.clipboard.writeText(text);

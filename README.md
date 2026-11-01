@@ -26,6 +26,14 @@ Built from the MT2 Lab design preview: same look, copy and research-use-only saf
 - Products, pack prices, stock and stock history; lots with certificate upload, "make current" and alert emails
 - Discount codes, subscribers, email log, settings (store, delivery, payments, checkout, marketing, referral, chat), team accounts with roles, activity log
 - Two-step sign in for admin accounts (code from an authenticator app such as Google Authenticator or 1Password)
+- Affiliates: applications to review, each affiliate's code, commission rate, customer discount, contact details, address, tax reference and bank details (encrypted, masked until shown, every view logged), their orders and commission, bonuses and deductions, payouts and a bank payment list for paying everyone at once
+
+**Affiliate programme**
+- Programme page, application form and programme rules at `/affiliates`, with a link in the footer
+- Each affiliate gets a code (for example SARAH10) that gives their audience a discount, and a link (`/r/SARAH10`, or `/r/SARAH10?to=/products/melanotan-ii`) that offers visitors the code in one tap. No tracking cookie is used: an order is credited when the code is used at checkout
+- Affiliate portal with its own sign in: code and link builder, visits, orders and commission by month, sales (order dates and values only, never customer details), payouts, their details and bank details (changes need their password and trigger an email to them and to you)
+- Commission is a percentage of the order value after discounts, excluding delivery. It is credited when the order is paid, becomes ready to pay a set number of days after dispatch (30 by default, so returns settle first), shrinks with partial refunds and is removed if the order is cancelled. A refund after you have paid is taken off the next payout
+- Affiliates cannot use their own code; paused affiliates' codes stop working but they can still sign in
 
 **Behind the scenes**
 - Every order, payment, email and admin action is recorded
@@ -61,6 +69,7 @@ Secrets live in `.env` (see `.env.example`, every line is explained there). Ever
 | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | Card payments |
 | `ANTHROPIC_API_KEY`, `CHAT_MODEL` | AI replies in the chat assistant (optional) |
 | `IDEAL_POSTCODES_API_KEY` | UK address lookup at checkout (optional) |
+| `ENCRYPTION_KEY` | Encrypts affiliate bank details in the database. Keep a copy somewhere safe |
 | `CRON_SECRET` | Protects the hourly maintenance endpoint |
 
 ## Payments: read this before launch
@@ -83,6 +92,7 @@ Questions about doses, injecting, reconstitution or personal use are declined by
 | Home page sections | `src/app/(shop)/page.tsx` |
 | Science page | `src/app/(shop)/science/page.tsx` |
 | Help centre, returns and about copy | `src/content/help.ts` |
+| Affiliate programme page and rules | `src/app/(shop)/affiliates/page.tsx`, `src/app/(shop)/affiliates/terms/page.tsx`; rates and payout wording in Admin › Settings › Affiliates |
 | Terms, privacy and cookies | `src/content/legal.tsx` (have a solicitor review them, then tick "Legal pages reviewed" in Settings) |
 | Email wording | `src/lib/email/templates.ts` |
 | Colours and layout | `src/styles/shop.css` (the original design's stylesheet) |
@@ -94,9 +104,10 @@ prisma/schema.prisma      database tables
 prisma/seed.ts            starting catalogue, lots and WELCOME10 code
 src/app/(shop)/           storefront pages
 src/app/(checkout)/       enclosed checkout
+src/app/(shop)/affiliates/ affiliate programme pages and portal
 src/app/admin/            admin CRM
 src/app/api/              checkout, chat, webhooks, cron, health
-src/lib/                  orders, checkout, payments, email, auth, settings
+src/lib/                  orders, checkout, payments, affiliates, email, auth, settings
 src/components/shop/      storefront components
 src/content/              long-form copy
 deploy/                   Caddy and PM2 files
@@ -122,6 +133,7 @@ scripts/                  create-admin, backup
 - Rate limits on sign-in, checkout, contact, chat and lookups; cross-site requests are rejected
 - Strict security headers and a content security policy in production
 - Card details go straight to the payment provider; bank details are only shown to the customer who placed the order
+- Affiliate bank details are encrypted with `ENCRYPTION_KEY`, shown masked, and only to admins and owners; affiliates never see customers' names or contact details
 - Customer order pages use long random links; tracking needs the order number plus the email or postcode
 
 See [DEPLOYMENT.md](DEPLOYMENT.md) to put it online.

@@ -43,6 +43,7 @@ export function SiteFooter({ settings, catalog }: { settings: SiteSettings; cata
             <Link href="/science#regulators">What regulators say</Link>
             <Link href="/lot-reports">Lot reports</Link>
             <Link href="/about">About us</Link>
+            {settings.affiliates.enabled && <Link href="/affiliates">Affiliate programme</Link>}
           </div>
           <div>
             <h2>Help</h2>
