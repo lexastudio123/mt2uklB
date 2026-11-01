@@ -4,6 +4,7 @@ import { addEvent, cancelOrder, markPaid } from '@/lib/orders';
 import { syncCommission } from '@/lib/affiliates';
 import { describePayment, verifyWebhook } from '@/lib/payments/stripe';
 import { m2 } from '@/lib/money';
+import { getConnections } from '@/lib/connections';
 
 type Session = { id: string; payment_status: string; payment_intent: string | null; amount_total: number | null; metadata?: Record<string, string>; client_reference_id?: string | null };
 type Charge = { payment_intent: string | null; amount_refunded: number; amount: number };
@@ -11,11 +12,12 @@ type Charge = { payment_intent: string | null; amount_refunded: number; amount: 
 /**
  * Stripe webhook. In the Stripe dashboard add an endpoint for this URL with the events
  * checkout.session.completed, checkout.session.async_payment_succeeded, checkout.session.async_payment_failed,
- * checkout.session.expired and charge.refunded, then put the signing secret in STRIPE_WEBHOOK_SECRET.
+ * checkout.session.expired and charge.refunded, then save the signing secret in Admin › Settings › Connections
+ * (or STRIPE_WEBHOOK_SECRET in .env).
  */
 export async function POST(req: Request) {
   const payload = await req.text();
-  if (!verifyWebhook(payload, req.headers.get('stripe-signature'))) return NextResponse.json({ error: 'Invalid signature' }, { status: 400 });
+  if (!verifyWebhook(payload, req.headers.get('stripe-signature'), (await getConnections()).stripeWebhookSecret)) return NextResponse.json({ error: 'Invalid signature' }, { status: 400 });
 
   let event: { type: string; data: { object: unknown } };
   try {

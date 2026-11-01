@@ -52,24 +52,24 @@ npm run dev
 ```
 
 Open http://localhost:3000 for the shop and http://localhost:3000/admin for the CRM.
-To add or reset an admin login at any time: `npm run admin:create`.
+To add or reset an admin login at any time: `npm run admin:create`. On a live server, `npm run admin:create -- --link you@example.com "Your Name"` prints a one-time link (valid 24 hours) where the person chooses their own password, so nobody else ever knows it.
 
-Before you can take a test order, add bank details (any values for testing) in **Admin › Settings › Payments**, or add Stripe test keys to `.env`.
+Before you can take a test order, add bank details (any values for testing) in **Admin › Settings › Payments**, or add Stripe test keys in **Admin › Settings › Connections**.
 
 ## Configuration
 
-Secrets live in `.env` (see `.env.example`, every line is explained there). Everything else is in **Admin › Settings**, including company details shown on legal pages and invoices, delivery prices, bank details, the discount pop-up and referral rewards.
+Server settings live in `.env` (see `.env.example`, every line is explained there). Everything else is in **Admin › Settings**, including company details shown on legal pages and invoices, delivery prices, bank details, the discount pop-up and referral rewards. Owners enter the email (SMTP), Stripe, AI and address lookup details under **Settings › Connections**, where they are checked before saving and stored encrypted with `ENCRYPTION_KEY`; the same values in `.env` take priority.
 
 | Variable | Purpose |
 | --- | --- |
 | `SITE_URL` | Public address, used in emails and payment redirects |
 | `DATABASE_URL` | SQLite file by default |
 | `UPLOAD_DIR` | Where lot certificates and images are stored |
-| `SMTP_*`, `MAIL_FROM` | Sending email (any SMTP provider) |
-| `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | Card payments |
-| `ANTHROPIC_API_KEY`, `CHAT_MODEL` | AI replies in the chat assistant (optional) |
-| `IDEAL_POSTCODES_API_KEY` | UK address lookup at checkout (optional) |
-| `ENCRYPTION_KEY` | Encrypts affiliate bank details in the database. Keep a copy somewhere safe |
+| `SMTP_*`, `MAIL_FROM` | Sending email (any SMTP provider), or enter it under Settings › Connections |
+| `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | Card payments, or enter them under Settings › Connections |
+| `ANTHROPIC_API_KEY`, `CHAT_MODEL` | AI replies in the chat assistant (optional; the key can go under Settings › Connections) |
+| `IDEAL_POSTCODES_API_KEY` | UK address lookup at checkout (optional; or under Settings › Connections) |
+| `ENCRYPTION_KEY` | Encrypts affiliate bank details and the keys saved in the admin. Keep a copy somewhere safe |
 | `CRON_SECRET` | Protects the hourly maintenance endpoint |
 
 ## Payments: read this before launch
@@ -78,7 +78,7 @@ Many mainstream payment processors do not accept research peptide merchants. Che
 
 ## The chat assistant
 
-Without an API key the assistant answers from built-in replies (prices, packs, delivery, returns, lots, payments, tracking). With `ANTHROPIC_API_KEY` set it uses Claude (Claude Opus 5.5 by default; set `CHAT_MODEL=claude-haiku-5-5` for a much cheaper model) with tools to search the catalogue, add to the basket, look up an order (order number plus email or postcode) and give delivery estimates. Server-side refusal fallbacks are switched on.
+Without an API key the assistant answers from built-in replies (prices, packs, delivery, returns, lots, payments, tracking). With an Anthropic key (Settings › Connections, or `ANTHROPIC_API_KEY`) it uses Claude (Claude Opus 5.5 by default; set `CHAT_MODEL=claude-haiku-5-5` for a much cheaper model) with tools to search the catalogue, add to the basket, look up an order (order number plus email or postcode) and give delivery estimates. Server-side refusal fallbacks are switched on.
 
 Questions about doses, injecting, reconstitution or personal use are declined by a fixed filter before any AI call, and the AI has the same rules in its instructions. Declined conversations are flagged in Admin › Inbox › Chats.
 
@@ -121,7 +121,7 @@ scripts/                  create-admin, backup
 | `npm run dev` | Development server |
 | `npm run build` / `npm start` | Production build and server |
 | `npm run setup` | Apply migrations and seed an empty shop |
-| `npm run admin:create` | Create an admin or reset a password |
+| `npm run admin:create` | Create an admin or reset a password (add `-- --link email` for a one-time set-password link) |
 | `npm run typecheck` | TypeScript check |
 | `npm run smoke -- https://yourdomain` | Check every public page and the key APIs respond |
 | `scripts/backup.sh` | Back up the database and uploads |
@@ -134,6 +134,8 @@ scripts/                  create-admin, backup
 - Strict security headers and a content security policy in production
 - Card details go straight to the payment provider; bank details are only shown to the customer who placed the order
 - Affiliate bank details are encrypted with `ENCRYPTION_KEY`, shown masked, and only to admins and owners; affiliates never see customers' names or contact details
+- Keys saved under Settings › Connections are encrypted with `ENCRYPTION_KEY`, never shown again, and only owners can change them; every owner gets an email when the Stripe keys change
+- First logins use one-time links from the server (`admin:create -- --link`), so nobody has to send a password to anyone
 - Customer order pages use long random links; tracking needs the order number plus the email or postcode
 
 See [DEPLOYMENT.md](DEPLOYMENT.md) to put it online.

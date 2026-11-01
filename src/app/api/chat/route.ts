@@ -3,11 +3,11 @@ import Anthropic from '@anthropic-ai/sdk';
 import { db } from '@/lib/db';
 import { getCustomer } from '@/lib/auth';
 import { getCatalog, toClientProduct } from '@/lib/catalog';
-import { activeMethods, bankTransferAvailable, cardPaymentsAvailable, getSettings } from '@/lib/settings';
+import { activeMethods, bankTransferAvailable, cardPaymentsReady, getSettings } from '@/lib/settings';
 import { etaPlain } from '@/lib/eta';
 import { clientIp, rateLimit, sameOrigin } from '@/lib/security';
 import { REFUSAL, mustDecline, ruleAnswer } from '@/lib/chat/rules';
-import { aiAvailable, aiReply, type ChatTurn, type ClientAction } from '@/lib/chat/assistant';
+import { aiReady, aiReply, type ChatTurn, type ClientAction } from '@/lib/chat/assistant';
 import { allHelp, helpContent } from '@/content/help';
 
 type Stored = { role: 'user' | 'assistant'; text: string; at: string };
@@ -34,7 +34,7 @@ export async function POST(req: Request) {
   stored.push({ role: 'user', text, at: new Date().toISOString() });
 
   const [catalog] = await Promise.all([getCatalog()]);
-  const pay = { card: cardPaymentsAvailable(s), bank: bankTransferAvailable(s) };
+  const pay = { card: await cardPaymentsReady(s), bank: bankTransferAvailable(s) };
   const method = activeMethods(s)[0];
   const eta = method ? etaPlain({ cutoffHour: s.shipping.cutoffHour, closedDates: s.shipping.closedDates }, method) : '';
 
@@ -45,7 +45,7 @@ export async function POST(req: Request) {
   if (mustDecline(text)) {
     reply = REFUSAL;
     flagged = true;
-  } else if (aiAvailable(s)) {
+  } else if (await aiReady(s)) {
     try {
       const history: ChatTurn[] = stored.slice(-12).map((m) => ({ role: m.role, text: m.text }));
       const r = await aiReply(history, { s, catalog, pay, eta });

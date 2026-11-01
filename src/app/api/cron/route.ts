@@ -21,6 +21,7 @@ export async function GET(req: Request) {
   const weekAgo = new Date(Date.now() - 7 * 864e5);
   const tokens = await db.authToken.deleteMany({ where: { expiresAt: { lt: weekAgo } } });
   const affiliateTokens = await db.affiliateToken.deleteMany({ where: { expiresAt: { lt: weekAgo } } });
+  const adminTokens = await db.adminToken.deleteMany({ where: { expiresAt: { lt: weekAgo } } });
   const chats = await db.chatConversation.deleteMany({ where: { updatedAt: { lt: new Date(Date.now() - 365 * 864e5) } } });
   const clicks = await db.affiliateClick.deleteMany({ where: { createdAt: { lt: new Date(Date.now() - 400 * 864e5) } } });
   const approved = await approveDueCommissions(true);
@@ -29,7 +30,7 @@ export async function GET(req: Request) {
     expiredOrders: expired,
     commissionApproved: approved,
     sessions: sessions.count + adminSessions.count + affiliateSessions.count,
-    tokens: tokens.count + affiliateTokens.count,
+    tokens: tokens.count + affiliateTokens.count + adminTokens.count,
     chats: chats.count,
     clicks: clicks.count,
   });

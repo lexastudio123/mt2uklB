@@ -9,7 +9,7 @@ import { IconLock } from '@/components/icons';
 export default async function CheckoutLayout({ children }: { children: React.ReactNode }) {
   const [settings, catalog, customer] = await Promise.all([getSettings(), getCatalog(), getCustomer()]);
   return (
-    <ShopProvider catalog={catalog.map(toClientProduct)} config={publicConfig(settings)} signedIn={!!customer}>
+    <ShopProvider catalog={catalog.map(toClientProduct)} config={await publicConfig(settings)} signedIn={!!customer}>
       <header className="k-ckhead">
         <div className="k-wrap">
           <Link className="brand" href="/">

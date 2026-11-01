@@ -2,7 +2,8 @@
 #   1. Point your domain's A record at the server.
 #   2. cp .env.example .env and fill it in (SITE_URL=https://yourdomain, DOMAIN=yourdomain).
 #   3. docker compose up -d --build
-#   4. docker compose exec app npm run admin:create
+#   4. docker compose exec app npm run admin:create -- --link you@example.com "Your Name"
+#      and open the one-time link it prints to choose your password.
 services:
   app:
     build: .

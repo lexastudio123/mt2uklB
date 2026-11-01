@@ -54,6 +54,8 @@ try {
 check((await fetch(base + '/this-page-does-not-exist')).status === 404, 'unknown page returns 404');
 const admin = await fetch(base + '/admin', { redirect: 'manual' });
 check([302, 303, 307, 308].includes(admin.status), 'admin redirects to sign in when signed out', String(admin.status));
+const setup = await fetch(base + '/admin/setup?token=not-a-real-link');
+check(setup.status === 200 && (await setup.text()).includes('Link expired'), 'admin setup page refuses a made-up link', String(setup.status));
 
 // Checkout quote (prices come from the database).
 try {

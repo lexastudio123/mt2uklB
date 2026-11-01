@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { getCatalog, toClientProduct } from '@/lib/catalog';
-import { bankTransferAvailable, cardPaymentsAvailable, getSettings } from '@/lib/settings';
+import { bankTransferAvailable, cardPaymentsReady, getSettings } from '@/lib/settings';
 import { helpContent } from '@/content/help';
 import { HelpCentre } from './client';
 
@@ -12,6 +12,6 @@ export const metadata: Metadata = {
 
 export default async function HelpPage() {
   const [catalog, s] = await Promise.all([getCatalog(), getSettings()]);
-  const cats = helpContent(catalog.map(toClientProduct), s, { card: cardPaymentsAvailable(s), bank: bankTransferAvailable(s) });
+  const cats = helpContent(catalog.map(toClientProduct), s, { card: await cardPaymentsReady(s), bank: bankTransferAvailable(s) });
   return <HelpCentre cats={cats} />;
 }

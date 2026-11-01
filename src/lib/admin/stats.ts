@@ -1,8 +1,8 @@
 import 'server-only';
 import { encryptionOn } from '../crypto';
 import { db } from '../db';
-import { bankTransferAvailable, cardPaymentsAvailable, type SiteSettings } from '../settings';
-import { emailConfigured } from '../email/send';
+import { bankTransferAvailable, cardPaymentsReady, type SiteSettings } from '../settings';
+import { emailReady } from '../email/send';
 import { siteUrl } from '../site';
 import { dayKey } from './format';
 
@@ -77,7 +77,7 @@ export type CheckItem = { done: boolean; label: string; detail: string; href: st
 /** What still needs doing before the shop takes real orders. */
 export async function launchChecklist(s: SiteSettings): Promise<CheckItem[]> {
   const bank = bankTransferAvailable(s);
-  const card = cardPaymentsAvailable(s);
+  const [card, mail] = await Promise.all([cardPaymentsReady(s), emailReady()]);
   const sampleLots = await db.lot.count({ where: { isCurrent: true, isSample: true } });
   const ownersWithoutTwoStep = await db.adminUser.count({ where: { role: 'owner', active: true, totpEnabledAt: null } });
   const co = s.company;
@@ -91,10 +91,10 @@ export async function launchChecklist(s: SiteSettings): Promise<CheckItem[]> {
       href: '/admin/settings?tab=payments',
     },
     {
-      done: emailConfigured(),
+      done: mail,
       label: 'Send emails',
-      detail: emailConfigured() ? 'SMTP is connected.' : 'Emails are recorded in Emails but not sent. Add SMTP settings to the server .env file.',
-      href: '/admin/emails',
+      detail: mail ? 'Email sending is connected.' : 'Emails are recorded in Emails but not sent. Add your email provider’s details under Settings › Connections.',
+      href: '/admin/settings?tab=connections',
     },
     { done: !placeholders, label: 'Company details', detail: placeholders ? 'Footer, invoices and legal pages still show placeholders.' : `${co.name}, ${co.number}`, href: '/admin/settings?tab=store' },
     {

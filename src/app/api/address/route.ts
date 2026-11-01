@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server';
 import { UK_POSTCODE_RE, formatPostcode } from '@/lib/site';
 import { clientIp, rateLimit } from '@/lib/security';
+import { getConnections } from '@/lib/connections';
 
-/** UK address lookup through Ideal Postcodes (optional; set IDEAL_POSTCODES_API_KEY). */
+/** UK address lookup through Ideal Postcodes (optional; add the key in Admin › Settings › Connections). */
 export async function GET(req: Request) {
-  const key = process.env.IDEAL_POSTCODES_API_KEY;
+  const key = (await getConnections()).postcodesKey;
   if (!key) return NextResponse.json({ error: 'Address lookup is not available.' }, { status: 404 });
   if (!rateLimit(`addr:${clientIp(req.headers)}`, 20, 10 * 60_000).ok) return NextResponse.json({ error: 'Too many lookups. Type your address instead.' }, { status: 429 });
   const pc = new URL(req.url).searchParams.get('postcode')?.trim().toUpperCase() || '';

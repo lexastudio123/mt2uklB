@@ -1,6 +1,7 @@
 import 'server-only';
 import Anthropic from '@anthropic-ai/sdk';
 import { db } from '../db';
+import { getConnections } from '../connections';
 import { findPack, packTitle, perVial, searchCatalog, type CatalogProduct } from '../catalog-types';
 import type { SiteSettings } from '../settings';
 import { m2, money } from '../money';
@@ -15,10 +16,16 @@ export type ClientAction = { type: 'add'; packId: string; qty: number };
 // Claude Opus 5.5 by default; set CHAT_MODEL (e.g. claude-haiku-5-5) to trade quality for cost.
 const MODEL = process.env.CHAT_MODEL || 'claude-opus-5-5';
 
-export const aiAvailable = (s: SiteSettings) => s.chat.aiEnabled && !!process.env.ANTHROPIC_API_KEY;
+/** AI replies are switched on and a key is set, in .env or in Admin › Settings › Connections. */
+export const aiReady = async (s: SiteSettings) => s.chat.aiEnabled && !!(await getConnections()).anthropicKey;
 
-const g = globalThis as unknown as { __anthropic?: Anthropic };
-const client = () => (g.__anthropic ??= new Anthropic({ timeout: 45_000, maxRetries: 1 }));
+const g = globalThis as unknown as { __anthropic?: { key: string; client: Anthropic } };
+
+async function client(): Promise<Anthropic> {
+  const apiKey = (await getConnections()).anthropicKey ?? '';
+  if (g.__anthropic?.key !== apiKey) g.__anthropic = { key: apiKey, client: new Anthropic({ apiKey, timeout: 45_000, maxRetries: 1 }) };
+  return g.__anthropic.client;
+}
 
 function systemPrompt(s: SiteSettings, catalog: CatalogProduct[], pay: { card: boolean; bank: boolean }): string {
   const methods = s.shipping.methods.filter((m) => m.active);
@@ -128,9 +135,10 @@ export async function aiReply(
   }
   while (messages.length && messages[0].role !== 'user') messages.shift();
   const system = systemPrompt(ctx.s, ctx.catalog, ctx.pay);
+  const ai = await client();
 
   for (let round = 0; round < 4; round++) {
-    const res = await client().beta.messages.create({
+    const res = await ai.beta.messages.create({
       model: MODEL,
       max_tokens: 4096,
       betas: ['server-side-fallback-2026-07-01'],

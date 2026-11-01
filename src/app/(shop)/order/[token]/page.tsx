@@ -3,8 +3,8 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { db } from '@/lib/db';
 import { getCustomer } from '@/lib/auth';
-import { bankTransferAvailable, cardPaymentsAvailable, getSettings } from '@/lib/settings';
-import { describePayment, retrieveSession, stripeConfigured } from '@/lib/payments/stripe';
+import { bankTransferAvailable, cardPaymentsReady, getSettings } from '@/lib/settings';
+import { describePayment, retrieveSession, stripeReady } from '@/lib/payments/stripe';
 import { markPaid, timelineStage, CUSTOMER_STATUS } from '@/lib/orders';
 import { m2, money } from '@/lib/money';
 import { dispatchDay, fday } from '@/lib/eta';
@@ -25,7 +25,7 @@ export default async function OrderPage({ params, searchParams }: Props) {
   if (!order) notFound();
 
   // Back from the card payment page: confirm with Stripe straight away in case the webhook is still on its way.
-  if (sp.paid && sp.session_id && order.paymentMethod === 'card' && order.paymentStatus === 'unpaid' && stripeConfigured()) {
+  if (sp.paid && sp.session_id && order.paymentMethod === 'card' && order.paymentStatus === 'unpaid' && (await stripeReady())) {
     try {
       const session = await retrieveSession(sp.session_id);
       if (session.metadata?.order_id === order.id && session.payment_status === 'paid') {
@@ -39,6 +39,7 @@ export default async function OrderPage({ params, searchParams }: Props) {
   }
 
   const [s, me] = await Promise.all([getSettings(), getCustomer()]);
+  const cardReady = await cardPaymentsReady(s);
   const first = (order.name || '').split(' ')[0] || 'there';
   const status = order.status;
   const isPaid = ['paid', 'packed', 'dispatched', 'delivered'].includes(status);
@@ -149,7 +150,7 @@ export default async function OrderPage({ params, searchParams }: Props) {
 
         {cardFailed && (
           <div style={{ display: 'flex', gap: 10, marginTop: 20, flexWrap: 'wrap' }}>
-            {cardPaymentsAvailable(s) && (
+            {cardReady && (
               <form action={`/api/orders/${order.accessToken}/pay`} method="post">
                 <button className="k-btn">Try card payment again</button>
               </form>

@@ -330,3 +330,18 @@ export function adminAffiliateBankChanged(s: SiteSettings, a: Pick<Affiliate, 'i
   return { subject: `Bank details changed: ${a.name} (${a.code})`, html: layout(s, body) };
 }
 
+export function adminTestEmail(s: SiteSettings, name: string): Rendered {
+  const body =
+    h1('Email is working') +
+    p(`Hello ${first(name)}. This test from Admin › Settings › Connections reached you, so order confirmations, dispatch notes and password links will go out too.`) +
+    small('If this landed in spam, add your email provider’s SPF and DKIM records to your domain.');
+  return { subject: `Test email from ${s.storeName}`, html: layout(s, body) };
+}
+
+export function adminConnectionChanged(s: SiteSettings, what: string, by: string): Rendered {
+  const body =
+    h1(`${esc(what)} changed`) +
+    p(`<b>${esc(by)}</b> changed the ${esc(what.toLowerCase())} in Admin › Settings › Connections. If this was not someone on your team, sign in, put back your own details and change your password straight away.`) +
+    button(`${siteUrl()}/admin/settings?tab=connections`, 'Open Connections');
+  return { subject: `${s.storeName}: ${what} changed`, html: layout(s, body) };
+}

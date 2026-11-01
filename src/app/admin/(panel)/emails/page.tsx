@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import type { Prisma } from '@prisma/client';
 import { db } from '@/lib/db';
-import { emailConfigured } from '@/lib/email/send';
+import { emailReady } from '@/lib/email/send';
 import { requireArea } from '@/lib/admin/perms';
 import { PER_PAGE, hrefWith, pageOf, sp1, type SP } from '@/lib/admin/queries';
 import { ago, fdt, TEMPLATE_LABEL } from '@/lib/admin/format';
@@ -26,19 +26,23 @@ export default async function EmailsPage({ searchParams }: { searchParams: Promi
     ...(template ? { template } : {}),
     ...(status ? { status } : {}),
   };
-  const [rows, total, templates, failed] = await Promise.all([
+  const [rows, total, templates, failed, mail] = await Promise.all([
     db.emailLog.findMany({ where, orderBy: { createdAt: 'desc' }, skip: (page - 1) * PER_PAGE, take: PER_PAGE, select: { id: true, to: true, subject: true, template: true, status: true, error: true, createdAt: true, orderId: true } }),
     db.emailLog.count({ where }),
     db.emailLog.groupBy({ by: ['template'], _count: { _all: true } }),
     db.emailLog.count({ where: { status: 'failed', createdAt: { gte: new Date(Date.now() - 7 * 864e5) } } }),
+    emailReady(),
   ]);
   return (
     <>
       <PageHead title="Emails" sub="Every email the shop has sent or tried to send, newest first." />
-      {!emailConfigured() && (
+      {!mail && (
         <Notice>
-          Email sending is not set up yet, so messages are recorded here but not delivered. Add your SMTP details (SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS and MAIL_FROM) to the
-          server&apos;s .env file and restart the site.
+          Email sending is not set up yet, so messages are recorded here but not delivered. Add your email provider&apos;s details under{' '}
+          <Link className="a-link" href="/admin/settings?tab=connections">
+            Settings › Connections
+          </Link>
+          .
         </Notice>
       )}
       {failed > 0 && <Notice tone="err">{failed} {failed === 1 ? 'email' : 'emails'} failed in the last 7 days. Open one to see the error.</Notice>}

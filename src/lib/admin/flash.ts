@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { ZodError } from 'zod';
 import { OrderError } from '../orders';
 import { AffiliateError } from '../affiliates';
+import { ConnectionError } from '../connections';
 
 /** Redirect back to a page with a success (?ok=) or error (?err=) banner. Call outside try/catch. */
 export function back(path: string, result: { ok?: string; err?: string }): never {
@@ -19,7 +20,7 @@ export function back(path: string, result: { ok?: string; err?: string }): never
 
 /** Turn an exception into a message that is safe and useful to show the team. */
 export function errorMessage(e: unknown): string {
-  if (e instanceof OrderError || e instanceof AffiliateError) return e.message;
+  if (e instanceof OrderError || e instanceof AffiliateError || e instanceof ConnectionError) return e.message;
   if (e instanceof ZodError) return e.issues[0]?.message || 'Check the form and try again.';
   if (e instanceof UserError) return e.message;
   if (e && typeof e === 'object' && 'code' in e && (e as { code?: string }).code === 'P2002') return 'That value is already used by another record.';

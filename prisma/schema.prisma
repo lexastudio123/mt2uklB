@@ -465,6 +465,7 @@ model AdminUser {
   updatedAt     DateTime  @updatedAt
 
   sessions         AdminSession[]
+  tokens           AdminToken[]
   orderEvents      OrderEvent[]
   customerNotes    CustomerNote[]
   ticketMessages   TicketMessage[]
@@ -484,6 +485,20 @@ model AdminSession {
   userAgent  String?
   createdAt  DateTime  @default(now())
   admin      AdminUser @relation(fields: [adminId], references: [id], onDelete: Cascade)
+
+  @@index([adminId])
+}
+
+// One-time link to choose a password, made on the server with `npm run admin:create -- --link`.
+// setup: a new account; recover: also clears two-step sign in (server access is the last-resort recovery).
+model AdminToken {
+  id        String    @id // SHA-256 of the token in the link
+  adminId   String
+  kind      String // setup | recover
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+  admin     AdminUser @relation(fields: [adminId], references: [id], onDelete: Cascade)
 
   @@index([adminId])
 }

@@ -2,6 +2,7 @@ import 'server-only';
 import crypto from 'node:crypto';
 import type { Order, OrderItem } from '@prisma/client';
 import { siteUrl } from '../site';
+import { getConnections } from '../connections';
 
 // Stripe Checkout over the REST API (no SDK needed). Checkout hosts the card form,
 // so card numbers never touch this server. Apple Pay and Google Pay appear automatically.
@@ -9,7 +10,8 @@ import { siteUrl } from '../site';
 // STRIPE_API_BASE is only for local testing against a mock server (for example stripe-mock).
 const API = (process.env.STRIPE_API_BASE || 'https://api.stripe.com/v1').replace(/\/+$/, '');
 
-export const stripeConfigured = () => !!process.env.STRIPE_SECRET_KEY;
+/** True when a Stripe secret key is set, in .env or in Admin › Settings › Connections. */
+export const stripeReady = async () => !!(await getConnections()).stripeKey;
 
 function encode(obj: Record<string, unknown>, prefix = '', out = new URLSearchParams()): URLSearchParams {
   for (const [k, v] of Object.entries(obj)) {
@@ -22,8 +24,8 @@ function encode(obj: Record<string, unknown>, prefix = '', out = new URLSearchPa
   return out;
 }
 
-async function call<T>(path: string, method: 'GET' | 'POST', body?: Record<string, unknown>, idempotencyKey?: string): Promise<T> {
-  const key = process.env.STRIPE_SECRET_KEY;
+async function call<T>(path: string, method: 'GET' | 'POST', body?: Record<string, unknown>, idempotencyKey?: string, apiKey?: string): Promise<T> {
+  const key = apiKey ?? (await getConnections()).stripeKey;
   if (!key) throw new Error('Card payments are not configured');
   const res = await fetch(API + path, {
     method,
@@ -104,8 +106,18 @@ export async function refundPayment(paymentIntentId: string, amount: number, rea
   return call('/refunds', 'POST', { payment_intent: paymentIntentId, amount, metadata: reason ? { reason: reason.slice(0, 200) } : undefined }, `refund-${paymentIntentId}-${amount}-${Date.now()}`);
 }
 
+/** Check a secret key before saving it. Returns Stripe's complaint, or null when the key works. */
+export async function checkStripeKey(key: string): Promise<string | null> {
+  try {
+    await call('/checkout/sessions?limit=1', 'GET', undefined, undefined, key);
+    return null;
+  } catch (e) {
+    return e instanceof Error ? e.message.slice(0, 300) : String(e);
+  }
+}
+
 /** Verify a webhook signature (Stripe-Signature header, HMAC-SHA256, five-minute tolerance). */
-export function verifyWebhook(payload: string, header: string | null, secret = process.env.STRIPE_WEBHOOK_SECRET): boolean {
+export function verifyWebhook(payload: string, header: string | null, secret: string | null): boolean {
   if (!header || !secret) return false;
   const parts = Object.fromEntries(
     header.split(',').map((kv) => {

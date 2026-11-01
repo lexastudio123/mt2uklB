@@ -1,7 +1,12 @@
 'use server';
 
+import type { AdminUser } from '@prisma/client';
 import { db } from '@/lib/db';
 import { getSettings, saveSettings } from '@/lib/settings';
+import { getConnections, saveConnections } from '@/lib/connections';
+import { checkMailConfig, sendEmail } from '@/lib/email/send';
+import { adminConnectionChanged, adminTestEmail } from '@/lib/email/templates';
+import { checkStripeKey } from '@/lib/payments/stripe';
 import type { ShipMethod } from '@/lib/eta';
 import { EMAIL_RE } from '@/lib/site';
 import { logActivity } from '@/lib/activity';
@@ -247,4 +252,157 @@ export async function saveOtherAction(fd: FormData) {
     r = { err: errorMessage(e) };
   }
   back(to('other'), r);
+}
+
+// ───────── Connections (owners only) ─────────
+
+const secret = (fd: FormData, k: string) => String(fd.get(k) ?? '').trim().slice(0, 400);
+const IN_ENV = 'This is set in the server’s .env file, which takes priority. Change it there.';
+
+/**
+ * Tell every owner when payment or email details change, in case an admin account has been taken over.
+ * Sent before an email change is saved, so it goes out through the details being replaced.
+ */
+async function alertOwners(by: AdminUser, what: string) {
+  const [s, owners] = await Promise.all([getSettings(), db.adminUser.findMany({ where: { role: 'owner', active: true }, select: { email: true } })]);
+  const mail = adminConnectionChanged(s, what, by.name);
+  for (const o of owners) await sendEmail({ to: o.email, template: 'team_connection_changed', ...mail });
+}
+
+export type EmailFormState = { err?: string; values?: { host: string; port: string; user: string; from: string } };
+
+export async function saveEmailConnectionAction(_prev: EmailFormState, fd: FormData): Promise<EmailFormState> {
+  const a = await requireArea('connections');
+  // Shown again if the test fails, so nothing has to be retyped except the password.
+  const values = { host: str(fd, 'smtpHost', 200), port: str(fd, 'smtpPort', 10), user: str(fd, 'smtpUser', 200), from: str(fd, 'mailFrom', 200) };
+  let r: R;
+  try {
+    const c = await getConnections();
+    if (c.mailSource === 'env') throw new UserError(IN_ENV);
+    const host = values.host.toLowerCase();
+    if (!/^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(host)) throw new UserError('Enter the SMTP server, like smtp.example.com.');
+    const port = int(fd, 'smtpPort', { min: 1, max: 65535, label: 'Port' });
+    const { user, from } = values;
+    const typed = String(fd.get('smtpPass') ?? '').slice(0, 400);
+    if (from && !/^([^<>@]*<[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+>|[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+)$/.test(from)) {
+      throw new UserError('“From” should be an email address, or a name and address like MT2 Lab <orders@yourdomain.co.uk>.');
+    }
+    const pass = typed || c.mail?.pass || '';
+    if (user && !pass) throw new UserError('Enter the SMTP password.');
+    const mail = { host, port, secure: port === 465, user, pass, from };
+    const problem = await checkMailConfig(mail);
+    if (problem) throw new UserError(`Could not sign in to ${host}: ${problem.replace(/\.?$/, '.')} Nothing was saved.`);
+    if (c.mail && (c.mail.host !== host || c.mail.user !== user)) await alertOwners(a, 'Email sending details');
+    await saveConnections({ smtp: { host, port, user, pass: typed || undefined, from } });
+    await logActivity(a.id, 'settings.connections', 'settings', 'email', `Email via ${host}:${port}`);
+    const test = await sendEmail({ to: a.email, template: 'team_test_email', ...adminTestEmail(await getSettings(), a.name) }, mail);
+    r = test.status === 'sent' ? { ok: `Email is connected. A test email is on its way to ${a.email}.` } : { err: `Saved, but the test email to ${a.email} failed. Open Emails to see why.` };
+  } catch (e) {
+    return { err: errorMessage(e), values };
+  }
+  back(to('connections'), r);
+}
+
+export async function removeEmailConnectionAction() {
+  const a = await requireArea('connections');
+  let r: R;
+  try {
+    if ((await getConnections()).mailSource === 'admin') await alertOwners(a, 'Email sending details');
+    await saveConnections({ smtp: null });
+    await logActivity(a.id, 'settings.connections', 'settings', 'email', 'Removed email details');
+    r = { ok: 'Email details removed. Emails are now recorded under Emails but not sent.' };
+  } catch (e) {
+    r = { err: errorMessage(e) };
+  }
+  back(to('connections'), r);
+}
+
+export async function saveStripeKeysAction(fd: FormData) {
+  const a = await requireArea('connections');
+  let r: R;
+  try {
+    const c = await getConnections();
+    const key = secret(fd, 'stripeKey');
+    const hook = secret(fd, 'stripeWebhook');
+    if (!key && !hook) throw new UserError('Paste a key to save.');
+    if (key) {
+      if (c.stripeKeySource === 'env') throw new UserError(IN_ENV);
+      if (!/^(sk|rk)_(test|live)_[A-Za-z0-9]{10,}$/.test(key)) throw new UserError('The secret key starts with sk_live_ or sk_test_. Find it in Stripe under Developers › API keys.');
+      const problem = await checkStripeKey(key);
+      if (problem) throw new UserError(`Stripe did not accept that key: ${problem}`);
+    }
+    if (hook) {
+      if (c.stripeWebhookSource === 'env') throw new UserError(IN_ENV);
+      if (!/^whsec_[A-Za-z0-9+/=_-]{16,}$/.test(hook)) throw new UserError('The signing secret starts with whsec_. Find it in Stripe under Developers › Webhooks, on your endpoint.');
+    }
+    await saveConnections({ ...(key ? { stripeSecretKey: key } : {}), ...(hook ? { stripeWebhookSecret: hook } : {}) });
+    const what = key && hook ? 'Stripe keys' : key ? 'Stripe secret key' : 'Stripe webhook secret';
+    await logActivity(a.id, 'settings.connections', 'settings', 'stripe', `Changed the ${what}`);
+    await alertOwners(a, what);
+    const missing = !(key || c.stripeKey)
+      ? ' Add the secret key too.'
+      : !(hook || c.stripeWebhookSecret)
+        ? ' Add the webhook signing secret too, so paid orders update by themselves.'
+        : '';
+    r = { ok: `Saved the ${what}.${missing}${key.startsWith('sk_test_') || key.startsWith('rk_test_') ? ' Test mode: pay with card 4242 4242 4242 4242 to try it.' : ''}` };
+  } catch (e) {
+    r = { err: errorMessage(e) };
+  }
+  back(to('connections'), r);
+}
+
+export async function removeStripeKeysAction() {
+  const a = await requireArea('connections');
+  let r: R;
+  try {
+    await saveConnections({ stripeSecretKey: null, stripeWebhookSecret: null });
+    await logActivity(a.id, 'settings.connections', 'settings', 'stripe', 'Removed the Stripe keys');
+    await alertOwners(a, 'Stripe keys');
+    r = { ok: 'Stripe keys removed. Card payment is off until you add them again.' };
+  } catch (e) {
+    r = { err: errorMessage(e) };
+  }
+  back(to('connections'), r);
+}
+
+const SIMPLE_KEYS = {
+  anthropic: { field: 'anthropicKey', source: 'anthropicSource', label: 'AI key', re: /^sk-ant-[A-Za-z0-9_-]{20,}$/, hint: 'Anthropic keys start with sk-ant-.' },
+  postcodes: { field: 'postcodesKey', source: 'postcodesSource', label: 'Address lookup key', re: /^[A-Za-z0-9_-]{8,100}$/, hint: 'Paste the API key from your Ideal Postcodes account.' },
+} as const;
+
+function simpleKey(fd: FormData) {
+  const which = str(fd, 'which') as keyof typeof SIMPLE_KEYS;
+  if (!(which in SIMPLE_KEYS)) throw new UserError('Unknown key.');
+  return SIMPLE_KEYS[which];
+}
+
+export async function saveSimpleKeyAction(fd: FormData) {
+  const a = await requireArea('connections');
+  let r: R;
+  try {
+    const k = simpleKey(fd);
+    const value = secret(fd, 'key');
+    if ((await getConnections())[k.source] === 'env') throw new UserError(IN_ENV);
+    if (!k.re.test(value)) throw new UserError(`That does not look like the right key. ${k.hint}`);
+    await saveConnections({ [k.field]: value });
+    await logActivity(a.id, 'settings.connections', 'settings', k.field, `Saved the ${k.label.toLowerCase()}`);
+    r = { ok: `${k.label} saved.` };
+  } catch (e) {
+    r = { err: errorMessage(e) };
+  }
+  back(to('connections'), r);
+}
+
+export async function removeSimpleKeyAction(fd: FormData) {
+  const a = await requireArea('connections');
+  let r: R;
+  try {
+    const k = simpleKey(fd);
+    await saveConnections({ [k.field]: null });
+    await logActivity(a.id, 'settings.connections', 'settings', k.field, `Removed the ${k.label.toLowerCase()}`);
+    r = { ok: `${k.label} removed.` };
+  } catch (e) {
+    r = { err: errorMessage(e) };
+  }
+  back(to('connections'), r);
 }

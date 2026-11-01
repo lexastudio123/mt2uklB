@@ -1,14 +1,17 @@
 import Link from 'next/link';
 import { db } from '@/lib/db';
 import { getSettings } from '@/lib/settings';
-import { emailConfigured } from '@/lib/email/send';
+import { getConnections, keyHint } from '@/lib/connections';
+import { encryptionOn } from '@/lib/crypto';
 import { siteUrl } from '@/lib/site';
 import { toPounds } from '@/lib/money';
-import { requireArea } from '@/lib/admin/perms';
+import { can, requireArea } from '@/lib/admin/perms';
 import { sp1, type SP } from '@/lib/admin/queries';
 import { Flash, Notice, PageHead, Pill, Tabs } from '@/components/admin/ui';
 import { SubmitButton } from '@/components/admin/client';
 import {
+  removeSimpleKeyAction,
+  removeStripeKeysAction,
   saveChatAction,
   saveCheckoutAction,
   saveDeliveryAction,
@@ -18,7 +21,10 @@ import {
   saveReferralAction,
   saveStoreAction,
   saveAffiliateSettingsAction,
+  saveSimpleKeyAction,
+  saveStripeKeysAction,
 } from './actions';
+import { EmailConnectionForm } from './email-form';
 
 export const metadata = { title: 'Settings' };
 
@@ -26,6 +32,7 @@ const TABS: [string, string][] = [
   ['store', 'Store'],
   ['delivery', 'Delivery'],
   ['payments', 'Payments'],
+  ['connections', 'Connections'],
   ['checkout', 'Checkout'],
   ['marketing', 'Marketing'],
   ['referral', 'Referrals'],
@@ -44,11 +51,15 @@ const Save = ({ label = 'Save' }: { label?: string }) => (
 
 const Status = ({ ok, yes, no }: { ok: boolean; yes: string; no: string }) => <Pill tone={ok ? 'green' : 'amber'}>{ok ? yes : no}</Pill>;
 
+const STRIPE_EVENTS = 'checkout.session.completed, checkout.session.async_payment_succeeded, checkout.session.async_payment_failed, checkout.session.expired, charge.refunded';
+const testKey = (k: string | null) => !!k && /^(sk|rk)_test_/.test(k);
+
 export default async function SettingsPage({ searchParams }: { searchParams: Promise<SP> }) {
-  await requireArea('settings');
+  const admin = await requireArea('settings');
   const sp = await searchParams;
   const tab = TABS.some(([k]) => k === sp1(sp, 'tab')) ? sp1(sp, 'tab') : 'store';
-  const s = await getSettings();
+  const [s, c] = await Promise.all([getSettings(), getConnections()]);
+  const owner = can(admin, 'connections');
   const welcome = tab === 'marketing' ? await db.discountCode.findUnique({ where: { code: s.marketing.welcomeCode } }) : null;
   const methods = [...s.shipping.methods];
 
@@ -315,29 +326,199 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
               <dl className="a-dl">
                 <dt>Secret key</dt>
                 <dd>
-                  <Status ok={!!process.env.STRIPE_SECRET_KEY} yes={process.env.STRIPE_SECRET_KEY?.startsWith('sk_test') ? 'Connected (test mode)' : 'Connected'} no="Not set" />
+                  <Status ok={!!c.stripeKey} yes={testKey(c.stripeKey) ? 'Connected (test mode)' : 'Connected'} no="Not set" />
                 </dd>
                 <dt>Webhook secret</dt>
                 <dd>
-                  <Status ok={!!process.env.STRIPE_WEBHOOK_SECRET} yes="Set" no="Not set" />
-                </dd>
-                <dt>Webhook URL</dt>
-                <dd>
-                  <span className="a-code">{siteUrl()}/api/webhooks/stripe</span>
-                </dd>
-                <dt>Events</dt>
-                <dd className="a-small" style={{ color: 'var(--ink)' }}>
-                  checkout.session.completed, checkout.session.async_payment_succeeded, checkout.session.expired, charge.refunded
+                  <Status ok={!!c.stripeWebhookSecret} yes="Set" no="Not set" />
                 </dd>
               </dl>
               <p className="a-small" style={{ margin: 0 }}>
-                The keys live in the server&apos;s .env file (STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET), never in the database. Before going live, check that your payment provider accepts
-                research-chemical merchants.
+                Add the Stripe keys under{' '}
+                <Link className="a-link" href="/admin/settings?tab=connections">
+                  Connections
+                </Link>
+                . Before going live, check that your payment provider accepts research-chemical merchants.
               </p>
             </div>
           </div>
           <Save label="Save payment settings" />
         </form>
+      )}
+
+      {tab === 'connections' && (
+        <div className="a-stack" style={{ maxWidth: 900 }}>
+          {!owner && <Notice>Only owners can change these. You can see what is connected.</Notice>}
+          {owner && !encryptionOn() && (
+            <Notice tone="err">Set ENCRYPTION_KEY in the server&apos;s .env file and restart the site before saving passwords and keys here, so they are stored encrypted.</Notice>
+          )}
+          {c.unreadable.length > 0 && (
+            <Notice tone="err">
+              {c.unreadable.join(', ')} can no longer be read, because the server&apos;s ENCRYPTION_KEY has changed. Enter {c.unreadable.length === 1 ? 'it' : 'them'} again.
+            </Notice>
+          )}
+
+          <div className="a-card">
+            <h2 className="a-h2">
+              Email sending <Status ok={!!c.mail} yes={c.mailSource === 'env' ? 'Connected (.env)' : 'Connected'} no="Not set up" />
+            </h2>
+            <p className="a-small" style={{ margin: '-4px 0 14px' }}>
+              Order confirmations, dispatch notes and password links go out through your email provider, for example Brevo, Postmark, Mailgun, Amazon SES, Microsoft 365 or
+              Google Workspace. Their help pages call these details the &ldquo;SMTP settings&rdquo;. Until they are added, emails are only recorded under Emails.
+            </p>
+            {c.mailSource === 'env' ? (
+              <p className="a-small" style={{ margin: 0 }}>
+                Set in the server&apos;s .env file ({c.mail?.host}), which takes priority over this page.
+              </p>
+            ) : owner ? (
+              <EmailConnectionForm
+                saved={c.mailForm}
+                storeName={s.storeName}
+                supportEmail={s.supportEmail}
+              />
+            ) : null}
+          </div>
+
+          <form action={saveStripeKeysAction} className="a-card" autoComplete="off">
+            <h2 className="a-h2">
+              Card payments (Stripe){' '}
+              <Status
+                ok={!!c.stripeKey && !!c.stripeWebhookSecret}
+                yes={testKey(c.stripeKey) ? 'Connected (test mode)' : 'Connected'}
+                no={c.stripeKey ? 'Webhook secret missing' : 'Not set up'}
+              />
+            </h2>
+            <ol className="a-small" style={{ margin: '-4px 0 14px', paddingLeft: 18, lineHeight: 1.7 }}>
+              <li>Check that Stripe accepts research-chemical merchants, then open your Stripe dashboard.</li>
+              <li>
+                Under Developers › API keys, copy the <b>secret key</b> into the first box below. Start with the test key (sk_test_).
+              </li>
+              <li>Under Developers › Webhooks, add an endpoint with the address and events below.</li>
+              <li>
+                Open that endpoint, reveal its <b>signing secret</b> (whsec_) and paste it into the second box.
+              </li>
+              <li>
+                Turn on card payment under{' '}
+                <Link className="a-link" href="/admin/settings?tab=payments">
+                  Payments
+                </Link>
+                .
+              </li>
+            </ol>
+            <dl className="a-dl" style={{ marginBottom: 16 }}>
+              <dt>Endpoint address</dt>
+              <dd>
+                <span className="a-code">{siteUrl()}/api/webhooks/stripe</span>
+              </dd>
+              <dt>Events</dt>
+              <dd className="a-small" style={{ color: 'var(--ink)' }}>
+                {STRIPE_EVENTS}
+              </dd>
+            </dl>
+            {owner && (
+              <div className="a-form">
+                <div className="a-row2">
+                  <div className="a-field mono">
+                    <label htmlFor="stripeKey">Secret key</label>
+                    {c.stripeKeySource === 'env' ? (
+                      <span className="hint">Set in the server&apos;s .env file.</span>
+                    ) : (
+                      <input id="stripeKey" name="stripeKey" type="password" autoComplete="off" spellCheck={false} placeholder={c.stripeKey ? `Saved, ${keyHint(c.stripeKey)}` : 'sk_test_… or sk_live_…'} />
+                    )}
+                  </div>
+                  <div className="a-field mono">
+                    <label htmlFor="stripeWebhook">Webhook signing secret</label>
+                    {c.stripeWebhookSource === 'env' ? (
+                      <span className="hint">Set in the server&apos;s .env file.</span>
+                    ) : (
+                      <input
+                        id="stripeWebhook"
+                        name="stripeWebhook"
+                        type="password"
+                        autoComplete="off"
+                        spellCheck={false}
+                        placeholder={c.stripeWebhookSecret ? `Saved, ${keyHint(c.stripeWebhookSecret)}` : 'whsec_…'}
+                      />
+                    )}
+                  </div>
+                </div>
+                <div className="a-formfoot">
+                  <SubmitButton className="a-btn copper" pending="Checking with Stripe…">
+                    Save keys
+                  </SubmitButton>
+                  {(c.stripeKeySource === 'admin' || c.stripeWebhookSource === 'admin') && (
+                    <SubmitButton className="a-btn ghost" formAction={removeStripeKeysAction} confirm="Remove the Stripe keys? Card payment stops until you add them again.">
+                      Remove keys
+                    </SubmitButton>
+                  )}
+                </div>
+                <p className="a-small" style={{ margin: 0 }}>
+                  Paste a new key to replace a saved one. Keys are stored encrypted and never shown again, and every owner gets an email when they change.
+                </p>
+              </div>
+            )}
+          </form>
+
+          {(
+            [
+              {
+                which: 'anthropic',
+                title: 'AI chat replies',
+                value: c.anthropicKey,
+                source: c.anthropicSource,
+                placeholder: 'sk-ant-…',
+                about: (
+                  <>
+                    With a key from console.anthropic.com the chat assistant writes its own replies, and still declines dosing and personal-use questions. Without one it answers from
+                    built-in replies. Switch it on or off under{' '}
+                    <Link className="a-link" href="/admin/settings?tab=chat">
+                      Chat
+                    </Link>
+                    .
+                  </>
+                ),
+                removeNote: 'Remove the AI key? The assistant goes back to built-in replies.',
+              },
+              {
+                which: 'postcodes',
+                title: 'UK address lookup',
+                value: c.postcodesKey,
+                source: c.postcodesSource,
+                placeholder: 'ak_…',
+                about: <>Customers type their postcode at checkout and pick their address from a list. Needs an Ideal Postcodes account (ideal-postcodes.co.uk), paid per lookup.</>,
+                removeNote: 'Remove the address lookup key? Customers type their address by hand.',
+              },
+            ] as const
+          ).map((k) => (
+            <form key={k.which} action={saveSimpleKeyAction} className="a-card" autoComplete="off">
+              <input type="hidden" name="which" value={k.which} />
+              <h2 className="a-h2">
+                {k.title} <Status ok={!!k.value} yes={k.source === 'env' ? 'Set (.env)' : 'Set'} no="Optional, not set" />
+              </h2>
+              <p className="a-small" style={{ margin: '-4px 0 14px' }}>
+                {k.about}
+              </p>
+              {k.source === 'env' ? (
+                <p className="a-small" style={{ margin: 0 }}>
+                  Set in the server&apos;s .env file, which takes priority over this page.
+                </p>
+              ) : owner ? (
+                <div className="a-inline">
+                  <div className="a-field mono">
+                    <label htmlFor={`key-${k.which}`}>API key</label>
+                    <input id={`key-${k.which}`} name="key" type="password" autoComplete="off" spellCheck={false} placeholder={k.value ? `Saved, ${keyHint(k.value)}` : k.placeholder} />
+                  </div>
+                  <SubmitButton className="a-btn copper">Save</SubmitButton>
+                  {k.source === 'admin' && (
+                    <SubmitButton className="a-btn ghost" formAction={removeSimpleKeyAction} confirm={k.removeNote}>
+                      Remove
+                    </SubmitButton>
+                  )}
+                </div>
+              ) : null}
+            </form>
+          ))}
+        </div>
       )}
 
       {tab === 'checkout' && (
@@ -493,7 +674,10 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
             <dl className="a-dl">
               <dt>AI key</dt>
               <dd>
-                <Status ok={!!process.env.ANTHROPIC_API_KEY} yes="Set" no="Not set (built-in replies only)" />
+                <Status ok={!!c.anthropicKey} yes="Set" no="Not set (built-in replies only)" />{' '}
+                <Link className="a-link" href="/admin/settings?tab=connections" style={{ fontSize: 13 }}>
+                  {c.anthropicKey ? 'Change' : 'Add a key'}
+                </Link>
               </dd>
               <dt>Model</dt>
               <dd className="a-mono">{process.env.CHAT_MODEL || 'default'}</dd>
@@ -523,7 +707,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
             <dl className="a-dl">
               <dt>Email sending</dt>
               <dd>
-                <Status ok={emailConfigured()} yes="SMTP connected" no="Not set up: emails are recorded only" />
+                <Status ok={!!c.mail} yes="Connected" no="Not set up: emails are recorded only" />
               </dd>
               <dt>Web address</dt>
               <dd className="a-mono">{siteUrl()}</dd>

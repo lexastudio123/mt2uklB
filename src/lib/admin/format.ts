@@ -102,4 +102,6 @@ export const TEMPLATE_LABEL: Record<string, string> = {
   affiliate_bank_changed: 'Affiliate: bank details changed',
   team_affiliate_application: 'Team: affiliate application',
   team_affiliate_bank_changed: 'Team: affiliate bank change',
+  team_test_email: 'Team: test email',
+  team_connection_changed: 'Team: connection details changed',
 };

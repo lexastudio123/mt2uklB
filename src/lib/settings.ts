@@ -1,6 +1,7 @@
 import 'server-only';
 import { cache } from 'react';
 import { db } from './db';
+import { getConnections } from './connections';
 import type { ShipMethod } from './eta';
 
 export type SiteSettings = {
@@ -150,8 +151,9 @@ export async function saveSettings(patch: Partial<SiteSettings> | Obj): Promise<
 
 export const activeMethods = (s: SiteSettings) => s.shipping.methods.filter((m) => m.active);
 
-export function cardPaymentsAvailable(s: SiteSettings): boolean {
-  return s.payments.card.enabled && !!process.env.STRIPE_SECRET_KEY;
+/** Card checkout is switched on and a Stripe key is set. */
+export async function cardPaymentsReady(s: SiteSettings): Promise<boolean> {
+  return s.payments.card.enabled && !!(await getConnections()).stripeKey;
 }
 
 export function bankTransferAvailable(s: SiteSettings): boolean {
@@ -160,7 +162,8 @@ export function bankTransferAvailable(s: SiteSettings): boolean {
 }
 
 /** Client-safe subset passed to the browser. */
-export function publicConfig(s: SiteSettings) {
+export async function publicConfig(s: SiteSettings) {
+  const c = await getConnections();
   return {
     storeName: s.storeName,
     supportEmail: s.supportEmail,
@@ -174,9 +177,9 @@ export function publicConfig(s: SiteSettings) {
     referral: s.referral,
     chatEnabled: s.chat.enabled,
     returnsDays: s.returnsDays,
-    card: cardPaymentsAvailable(s),
+    card: s.payments.card.enabled && !!c.stripeKey,
     bank: bankTransferAvailable(s),
-    addressLookup: !!process.env.IDEAL_POSTCODES_API_KEY,
+    addressLookup: !!c.postcodesKey,
   };
 }
-export type PublicConfig = ReturnType<typeof publicConfig>;
+export type PublicConfig = Awaited<ReturnType<typeof publicConfig>>;

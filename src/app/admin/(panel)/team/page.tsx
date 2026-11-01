@@ -57,8 +57,8 @@ export default async function TeamPage({ searchParams }: { searchParams: Promise
                     {u.lastLoginAt ? ago(u.lastLoginAt) : 'Never'}
                   </td>
                   <td>
-                    {u.active ? <Pill tone="green">Active</Pill> : <Pill>Deactivated</Pill>}{' '}
-                    {u.totpEnabledAt ? <Pill tone="teal">Two-step on</Pill> : <Pill>Password only</Pill>}
+                    {!u.active ? <Pill>Deactivated</Pill> : u.passwordHash ? <Pill tone="green">Active</Pill> : <Pill tone="amber">Setup link not used yet</Pill>}{' '}
+                    {u.totpEnabledAt ? <Pill tone="teal">Two-step on</Pill> : u.passwordHash ? <Pill>Password only</Pill> : null}
                   </td>
                   <td className="a-right">
                     {u.id !== me.id && u.totpEnabledAt && (

@@ -12,7 +12,7 @@ export default async function AdminLogin({ searchParams }: { searchParams: Promi
   // A half-finished sign in (password accepted, code still needed) always lands on the code step.
   const pending = await getPendingAdmin();
   return (
-    <div className="a-login">
+    <main className="a-login">
       <div className="a-login-card">
         <div className="top">
           <span className="a-brand">
@@ -46,6 +46,6 @@ export default async function AdminLogin({ searchParams }: { searchParams: Promi
           </p>
         </div>
       </div>
-    </div>
+    </main>
   );
 }

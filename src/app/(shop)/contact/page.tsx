@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { getCatalog, toClientProduct } from '@/lib/catalog';
-import { bankTransferAvailable, cardPaymentsAvailable, getSettings } from '@/lib/settings';
+import { bankTransferAvailable, cardPaymentsReady, getSettings } from '@/lib/settings';
 import { getCustomer } from '@/lib/auth';
 import { TICKET_TOPICS } from '@/lib/tickets';
 import { allHelp, helpContent } from '@/content/help';
@@ -18,7 +18,7 @@ export const metadata: Metadata = {
 export default async function ContactPage({ searchParams }: { searchParams: Promise<{ order?: string; topic?: string }> }) {
   const sp = await searchParams;
   const [catalog, s, me] = await Promise.all([getCatalog(), getSettings(), getCustomer()]);
-  const quick = allHelp(helpContent(catalog.map(toClientProduct), s, { card: cardPaymentsAvailable(s), bank: bankTransferAvailable(s) })).slice(0, 5);
+  const quick = allHelp(helpContent(catalog.map(toClientProduct), s, { card: await cardPaymentsReady(s), bank: bankTransferAvailable(s) })).slice(0, 5);
   return (
     <div className="k-page">
       <div className="k-wrap" style={{ maxWidth: 1080 }}>

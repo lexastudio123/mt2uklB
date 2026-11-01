@@ -21,6 +21,7 @@ export const AREA_MIN = {
   subscribers: 'admin',
   emails: 'admin',
   settings: 'admin',
+  connections: 'owner', // email, Stripe and other service keys
   activity: 'admin',
   export: 'admin',
   team: 'owner',

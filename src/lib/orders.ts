@@ -4,7 +4,7 @@ import { db } from './db';
 import { getSettings } from './settings';
 import { sendEmail } from './email/send';
 import * as T from './email/templates';
-import { refundPayment, stripeConfigured } from './payments/stripe';
+import { refundPayment, stripeReady } from './payments/stripe';
 import { royalMailTrackingUrl } from './site';
 import { m2 } from './money';
 import { syncCommission } from './affiliates';
@@ -254,7 +254,7 @@ export async function refundOrder(orderId: string, opts: { adminId?: string | nu
 
   let how = 'recorded as refunded manually';
   if (o.paymentMethod === 'card' && o.paymentIntent) {
-    if (!stripeConfigured()) throw new OrderError('Card payments are not configured, so this card refund cannot be sent. Refund it in your payment provider and record it again.');
+    if (!(await stripeReady())) throw new OrderError('Card payments are not configured, so this card refund cannot be sent. Refund it in your payment provider and record it again.');
     await refundPayment(o.paymentIntent, amount, opts.reason);
     how = 'refunded to the card via Stripe';
   }

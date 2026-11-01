@@ -18,9 +18,9 @@ import { back, errorMessage, UserError } from '@/lib/admin/flash';
 import { bool, ids, pounds, str } from '@/lib/admin/forms';
 import { currentLotCodes } from '@/lib/admin/queries';
 import { m2 } from '@/lib/money';
-import { emailConfigured } from '@/lib/email/send';
+import { emailReady } from '@/lib/email/send';
 
-const mailed = () => (emailConfigured() ? 'emailed' : 'email recorded under Emails (sending is not set up yet)');
+const mailed = async () => ((await emailReady()) ? 'emailed' : 'email recorded under Emails (sending is not set up yet)');
 import { royalMailTrackingUrl } from '@/lib/site';
 
 const path = (id: string) => `/admin/orders/${id}`;
@@ -48,7 +48,7 @@ export async function markPaidAction(fd: FormData) {
     const detail = note ? `${o.paymentMethod === 'card' ? 'Card' : 'Bank transfer'}, ${note}` : null;
     const res = await markPaid(id, { adminId: a.id, detail, notify: bool(fd, 'notify') });
     await logActivity(a.id, 'order.mark_paid', 'order', id, `${o.number}${note ? `: ${note}` : ''}`);
-    r = { ok: res.changed ? `Payment recorded for ${o.number}.${bool(fd, 'notify') ? ` Confirmation ${mailed()}.` : ''}` : 'This order was already marked as paid.' };
+    r = { ok: res.changed ? `Payment recorded for ${o.number}.${bool(fd, 'notify') ? ` Confirmation ${await mailed()}.` : ''}` : 'This order was already marked as paid.' };
   } catch (e) {
     r = { err: errorMessage(e) };
   }
@@ -81,7 +81,7 @@ export async function dispatchAction(fd: FormData) {
     const carrier = str(fd, 'carrier', 60) || 'Royal Mail';
     const o = await dispatchOrder(id, { adminId: a.id, trackingNumber: tracking, carrier, notify: bool(fd, 'notify') });
     await logActivity(a.id, 'order.dispatch', 'order', id, `${o.number} via ${carrier}${tracking ? ` ${tracking}` : ''}`);
-    r = { ok: `${o.number} dispatched${bool(fd, 'notify') ? `, customer ${mailed()}` : ''}.` };
+    r = { ok: `${o.number} dispatched${bool(fd, 'notify') ? `, customer ${await mailed()}` : ''}.` };
   } catch (e) {
     r = { err: errorMessage(e) };
   }
@@ -178,7 +178,7 @@ export async function resendAction(fd: FormData) {
     const o = await db.order.findUniqueOrThrow({ where: { id }, include: { items: true } });
     await sendOrderEmail(o, kind as 'confirmed' | 'received_bank' | 'dispatched', { adminId: a.id });
     await logActivity(a.id, 'order.resend_email', 'order', id, `${o.number}: ${kind}`);
-    r = { ok: emailConfigured() ? `Email sent again to ${o.email}.` : `Email recorded under Emails (sending is not set up yet).` };
+    r = { ok: (await emailReady()) ? `Email sent again to ${o.email}.` : `Email recorded under Emails (sending is not set up yet).` };
   } catch (e) {
     r = { err: errorMessage(e) };
   }

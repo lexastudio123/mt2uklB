@@ -2,7 +2,7 @@
 
 import { cookies } from 'next/headers';
 import { db } from '@/lib/db';
-import { hashPassword, requireAdmin, verifyPassword } from '@/lib/auth';
+import { ADMIN_PASSWORD_MIN, hashPassword, requireAdmin, verifyPassword } from '@/lib/auth';
 import { sha256 } from '@/lib/security';
 import { logActivity } from '@/lib/activity';
 import { back, errorMessage, UserError } from '@/lib/admin/flash';
@@ -34,7 +34,7 @@ export async function changeMyPasswordAction(fd: FormData) {
     const next = String(fd.get('next') ?? '');
     const confirm = String(fd.get('confirm') ?? '');
     if (!(await verifyPassword(current, a.passwordHash))) throw new UserError('Your current password is not right.');
-    if (next.length < 10) throw new UserError('Use at least 10 characters for the new password.');
+    if (next.length < ADMIN_PASSWORD_MIN) throw new UserError(`Use at least ${ADMIN_PASSWORD_MIN} characters for the new password.`);
     if (next !== confirm) throw new UserError('The two new passwords do not match.');
     if (next === current) throw new UserError('Choose a password you have not used here before.');
     await db.adminUser.update({ where: { id: a.id }, data: { passwordHash: await hashPassword(next) } });

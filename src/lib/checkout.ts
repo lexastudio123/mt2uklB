@@ -4,7 +4,7 @@ import type { Customer } from '@prisma/client';
 import { db } from './db';
 import { getCatalog, bySlug } from './catalog';
 import { MAX_LINE_QTY, deliveryFor, priceCart, type CartLine } from './cart-math';
-import { activeMethods, bankTransferAvailable, cardPaymentsAvailable, getSettings, type SiteSettings } from './settings';
+import { activeMethods, bankTransferAvailable, cardPaymentsReady, getSettings, type SiteSettings } from './settings';
 import { arrival } from './eta';
 import { EMAIL_RE, UK_POSTCODE_RE, formatPostcode } from './site';
 import { newAccessToken, newOrderNumber, newReferralCode } from './ids';
@@ -158,7 +158,7 @@ export async function placeOrder(raw: unknown, ctx: { customer: Customer | null;
   if (q.stockIssues.length) return { ok: false, error: q.stockIssues.join(' ') + ' Please update your basket.' };
   if (d.code && q.code && !q.code.ok) return { ok: false, error: q.code.message, field: 'code' };
   if (q.total > 0) {
-    const available = d.paymentMethod === 'card' ? cardPaymentsAvailable(settings) : bankTransferAvailable(settings);
+    const available = d.paymentMethod === 'card' ? await cardPaymentsReady(settings) : bankTransferAvailable(settings);
     if (!available) return { ok: false, error: 'That payment method is not available right now. Please choose another.', field: 'paymentMethod' };
   }
 
@@ -300,7 +300,7 @@ export async function startCardPayment(orderId: string): Promise<PlaceResult> {
   const settings = await getSettings();
   const order = await db.order.findUniqueOrThrow({ where: { id: orderId }, include: { items: true } });
   if (order.paymentStatus !== 'unpaid' || order.status !== 'awaiting_payment') return { ok: true, redirect: `/order/${order.accessToken}` };
-  if (!cardPaymentsAvailable(settings)) return { ok: false, error: 'Card payments are not available right now.' };
+  if (!(await cardPaymentsReady(settings))) return { ok: false, error: 'Card payments are not available right now.' };
   try {
     const session = await createCheckoutSession(order, settings.storeName);
     await db.order.update({ where: { id: order.id }, data: { paymentRef: session.id, paymentMethod: 'card', paymentDetail: null } });

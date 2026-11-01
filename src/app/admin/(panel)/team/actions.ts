@@ -1,7 +1,7 @@
 'use server';
 
 import { db } from '@/lib/db';
-import { hashPassword } from '@/lib/auth';
+import { ADMIN_PASSWORD_MIN, hashPassword } from '@/lib/auth';
 import { EMAIL_RE } from '@/lib/site';
 import { logActivity } from '@/lib/activity';
 import { requireArea } from '@/lib/admin/perms';
@@ -10,7 +10,6 @@ import { str } from '@/lib/admin/forms';
 
 type R = { ok?: string; err?: string };
 const ROLES = ['owner', 'admin', 'staff'];
-const ADMIN_PW_MIN = 10;
 
 async function otherActiveOwners(id: string) {
   return db.adminUser.count({ where: { role: 'owner', active: true, NOT: { id } } });
@@ -27,7 +26,7 @@ export async function addAdminAction(fd: FormData) {
     if (name.length < 2) throw new UserError('Enter their name.');
     if (!EMAIL_RE.test(email)) throw new UserError('Enter a valid email address.');
     if (!ROLES.includes(role)) throw new UserError('Choose a role.');
-    if (password.length < ADMIN_PW_MIN) throw new UserError(`The temporary password needs at least ${ADMIN_PW_MIN} characters.`);
+    if (password.length < ADMIN_PASSWORD_MIN) throw new UserError(`The temporary password needs at least ${ADMIN_PASSWORD_MIN} characters.`);
     if (await db.adminUser.findUnique({ where: { email } })) throw new UserError('Someone on the team already uses that email.');
     const u = await db.adminUser.create({ data: { name, email, role, passwordHash: await hashPassword(password) } });
     await logActivity(a.id, 'team.add', 'admin', u.id, `${email} as ${role}`);
@@ -81,9 +80,11 @@ export async function resetAdminPasswordAction(fd: FormData) {
   try {
     const id = str(fd, 'id');
     const password = String(fd.get('password') ?? '');
-    if (password.length < ADMIN_PW_MIN) throw new UserError(`The new password needs at least ${ADMIN_PW_MIN} characters.`);
+    if (password.length < ADMIN_PASSWORD_MIN) throw new UserError(`The new password needs at least ${ADMIN_PASSWORD_MIN} characters.`);
     const u = await db.adminUser.update({ where: { id }, data: { passwordHash: await hashPassword(password) } });
     if (id !== a.id) await db.adminSession.deleteMany({ where: { adminId: id } });
+    // An unused setup link would otherwise still let someone choose a different password.
+    await db.adminToken.deleteMany({ where: { adminId: id, usedAt: null } });
     await logActivity(a.id, 'team.reset_password', 'admin', id, u.email);
     r = { ok: `Password changed for ${u.name}${id !== a.id ? ', who has been signed out' : ''}.` };
   } catch (e) {

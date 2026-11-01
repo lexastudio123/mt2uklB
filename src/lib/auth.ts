@@ -162,3 +162,21 @@ export async function endAdminSession(): Promise<void> {
   if (token) await db.adminSession.deleteMany({ where: { id: sha256(token) } });
   jar.delete(ADMIN_COOKIE);
 }
+
+/** Admin passwords are longer than customer ones. */
+export const ADMIN_PASSWORD_MIN = 10;
+
+/** A one-time link from `npm run admin:create -- --link`, still unused, unexpired and for an active account. */
+export async function peekAdminToken(token: string) {
+  if (!token) return null;
+  const t = await db.adminToken.findUnique({ where: { id: sha256(token) }, include: { admin: true } });
+  if (!t || t.usedAt || t.expiresAt < new Date() || !t.admin.active) return null;
+  return t;
+}
+
+export async function consumeAdminToken(token: string) {
+  const t = await peekAdminToken(token);
+  if (!t) return null;
+  const done = await db.adminToken.updateMany({ where: { id: t.id, usedAt: null }, data: { usedAt: new Date() } });
+  return done.count === 1 ? t : null;
+}

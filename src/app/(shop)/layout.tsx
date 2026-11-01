@@ -18,7 +18,7 @@ export default async function ShopLayout({ children }: { children: React.ReactNo
   const client = catalog.map(toClientProduct);
   const gateAccepted = jar.get('mt_ruo')?.value === '1';
   return (
-    <ShopProvider catalog={client} config={publicConfig(settings)} signedIn={!!customer}>
+    <ShopProvider catalog={client} config={await publicConfig(settings)} signedIn={!!customer}>
       <a href="#app" className="k-sr" style={{ position: 'absolute' }}>
         Skip to content
       </a>
