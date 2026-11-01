@@ -62,7 +62,7 @@ nav.main a:hover,nav.main a[aria-current]{color:var(--crema);background:rgba(244
 .ib .n{position:absolute;top:4px;right:2px;min-width:18px;height:18px;border-radius:9px;background:var(--copper);color:#1A0E06;font-size:11px;font-weight:700;display:grid;place-items:center;padding:0 4px}
 .menu-btn{display:none}
 @media (max-width:900px){nav.main{display:none}.menu-btn{display:inline-grid}.hdr{grid-template-columns:auto 1fr auto;gap:8px}.logo{justify-self:start}}
-@media (max-width:560px){.notice .wrap{justify-content:center;text-align:center}.notice .ruo{display:none}.logo{font-size:26px}.logo small{display:none}.tools .acct{display:none}}
+@media (max-width:560px){.notice .wrap{justify-content:center;text-align:center}.notice .wrap>span:not(.ruo){display:none}.logo{font-size:26px}.logo small{display:none}.tools .acct{display:none}}
 
 /* hero */
 .hero{position:relative;overflow:hidden;background:radial-gradient(60% 70% at 72% 52%,rgba(200,121,74,.32),rgba(22,16,12,0) 70%),var(--bean);color:var(--crema)}
@@ -313,6 +313,7 @@ footer .flinks{display:flex;flex-wrap:wrap;gap:6px 18px;margin-top:10px}footer .
 .empty .btn{margin-top:14px}
 .drawer-nav{position:fixed;inset:0;z-index:95;background:rgba(10,6,4,.55)}
 .drawer-nav .panel{position:absolute;left:0;top:0;bottom:0;width:min(330px,86%);background:var(--bean);color:var(--crema);padding:24px 20px;display:flex;flex-direction:column;gap:2px;overflow-y:auto}
+.drawer-nav .x{position:absolute;top:25px;right:12px}
 .drawer-nav a{text-decoration:none;font-family:var(--display);font-weight:800;font-size:32px;text-transform:uppercase;padding:6px 0;line-height:1.05}
 .drawer-nav a.s{font-family:var(--sans);font-weight:500;font-size:16px;text-transform:none;color:var(--dust);padding:7px 0}
 .search-ov{position:fixed;inset:0;z-index:95;background:rgba(10,6,4,.6);display:flex;justify-content:center;align-items:flex-start;padding:80px 16px}

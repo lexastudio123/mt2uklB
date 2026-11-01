@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { IconBag, IconMenu, IconSearch, IconUser } from '../icons';
+import { IconBag, IconMenu, IconSearch, IconUser, IconX } from '../icons';
 import { useCart, useShop, useUI } from './providers';
 import { packLabel, searchCatalog } from '@/lib/catalog-types';
 import { m2 } from '@/lib/money';
@@ -69,10 +69,17 @@ export function SiteHeader() {
 export function MobileNav() {
   const { catalog } = useShop();
   const { menuOpen, setMenuOpen } = useUI();
+  const close = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (menuOpen) close.current?.focus();
+  }, [menuOpen]);
   if (!menuOpen) return null;
   return (
-    <div className="drawer-nav" onClick={(e) => e.target === e.currentTarget && setMenuOpen(false)}>
+    <div className="drawer-nav" role="dialog" aria-modal="true" aria-label="Menu" onClick={(e) => e.target === e.currentTarget && setMenuOpen(false)}>
       <nav className="panel" aria-label="Menu" onClick={(e) => (e.target as HTMLElement).closest('a') && setMenuOpen(false)}>
+        <button ref={close} className="ib x" aria-label="Close menu" onClick={() => setMenuOpen(false)}>
+          <IconX />
+        </button>
         <Link href="/">Home</Link>
         <Link href="/shop">Shop</Link>
         {catalog.map((p) => (
