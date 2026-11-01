@@ -36,6 +36,8 @@ const nextConfig: NextConfig = {
     return [
       { source: '/:path*', headers: base },
       { source: '/admin/:path*', headers: [{ key: 'X-Robots-Tag', value: 'noindex, nofollow' }, { key: 'Cache-Control', value: 'no-store' }] },
+      { source: '/img/:path*', headers: [{ key: 'Cache-Control', value: 'public, max-age=604800, stale-while-revalidate=86400' }] },
+      { source: '/favicon.svg', headers: [{ key: 'Cache-Control', value: 'public, max-age=604800' }] },
     ];
   },
 };

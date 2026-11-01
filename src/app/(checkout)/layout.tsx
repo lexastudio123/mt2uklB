@@ -24,7 +24,7 @@ export default async function CheckoutLayout({ children }: { children: React.Rea
           </Link>
         </div>
       </header>
-      {children}
+      <main id="app">{children}</main>
     </ShopProvider>
   );
 }

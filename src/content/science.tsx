@@ -50,7 +50,9 @@ export function CompareTable({ mt1, mt2 }: { mt1?: CatalogProduct; mt2?: Catalog
       <table className="cmp">
         <thead>
           <tr>
-            <th />
+            <th>
+              <span className="k-sr">Compared</span>
+            </th>
             <th>MT1</th>
             <th>MT2</th>
           </tr>

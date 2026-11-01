@@ -9,7 +9,11 @@ import { CopyButton, OpenChatButton } from '@/components/shop/bits';
 import { Faq, KitCrumbs } from '@/components/shop/trust';
 import { ContactForm } from './form';
 
-export const metadata: Metadata = { title: 'Contact', description: 'Chat, email or send the team a message.' };
+export const metadata: Metadata = {
+  title: 'Contact',
+  description: 'Chat with our assistant 24/7, email the team, or send a message about an order, delivery, returns or products. We reply by email.',
+  alternates: { canonical: '/contact' },
+};
 
 export default async function ContactPage({ searchParams }: { searchParams: Promise<{ order?: string; topic?: string }> }) {
   const sp = await searchParams;

@@ -1,3 +1,4 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import { getCatalog } from '@/lib/catalog';
 import { getSettings } from '@/lib/settings';
@@ -8,6 +9,8 @@ import { AddButton, OpenChatButton } from '@/components/shop/bits';
 import { PackLadder } from '@/components/shop/pack-ladder';
 import { LotLookupSplit } from '@/components/shop/lot-lookup';
 import { CompareTable, TIMELINE } from '@/content/science';
+
+export const metadata: Metadata = { alternates: { canonical: '/' } };
 
 export default async function HomePage() {
   const [catalog, s] = await Promise.all([getCatalog(), getSettings()]);
@@ -82,8 +85,8 @@ export default async function HomePage() {
             <span className="arc" />
             <span className="ring" />
             <span className="ring b" />
-            <img className="a" src={mt1?.image ?? '/img/mt1.webp'} alt="" />
-            <img className="b" src={mt2?.image ?? '/img/mt2.webp'} alt="" />
+            <img className="a" src={mt1?.image ?? '/img/mt1.webp'} alt="" fetchPriority="high" />
+            <img className="b" src={mt2?.image ?? '/img/mt2.webp'} alt="" fetchPriority="high" />
             {mt1?.lots[0] && (
               <span className="tag t1">
                 MT1 · <b>{mt1.lots[0].purity}%</b> · lot {mt1.lots[0].code}

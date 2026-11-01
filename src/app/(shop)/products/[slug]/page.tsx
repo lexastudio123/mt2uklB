@@ -39,16 +39,16 @@ function Research({ p }: { p: CatalogProduct }) {
         <i />
         {r.levelLabel}
       </span>
-      <h4>What it is</h4>
+      <h2>What it is</h2>
       <p>{r.what}</p>
-      <h4>What the research shows</h4>
+      <h2>What the research shows</h2>
       <ul>
         {r.findings.map((x) => (
           <li key={x}>{x}</li>
         ))}
       </ul>
       {r.warning && <div className="warnbox">{r.warning}</div>}
-      <h4>Read the studies</h4>
+      <h2>Read the studies</h2>
       <div className="src">
         <a href={`https://pubmed.ncbi.nlm.nih.gov/?term=${term}`} target="_blank" rel="noopener">
           PubMed

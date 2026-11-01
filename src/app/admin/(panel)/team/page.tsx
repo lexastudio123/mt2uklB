@@ -25,7 +25,9 @@ export default async function TeamPage({ searchParams }: { searchParams: Promise
                 <th>Role</th>
                 <th>Last sign in</th>
                 <th>Status</th>
-                <th />
+                <th>
+                  <span className="a-sr">Actions</span>
+                </th>
               </tr>
             </thead>
             <tbody>

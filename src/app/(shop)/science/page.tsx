@@ -7,6 +7,7 @@ import { Crumbs } from '@/components/shop/trust';
 export const metadata: Metadata = {
   title: 'MT1 and MT2 explained',
   description: 'What Melanotan I and Melanotan II are, where they came from, what research has found and what regulators say. Factual background only.',
+  alternates: { canonical: '/science' },
 };
 
 const TOC: [string, string][] = [

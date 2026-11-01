@@ -4,7 +4,11 @@ import { KitCrumbs } from '@/components/shop/trust';
 import { OpenChatButton } from '@/components/shop/bits';
 import { TrackForm } from './form';
 
-export const metadata: Metadata = { title: 'Track your order', description: 'Check your order status with your order number and email or postcode.' };
+export const metadata: Metadata = {
+  title: 'Track your order',
+  description: 'Check the status of your order with its number and the email or postcode you used. No account needed.',
+  alternates: { canonical: '/track' },
+};
 
 export default async function TrackPage({ searchParams }: { searchParams: Promise<{ order?: string }> }) {
   const sp = await searchParams;

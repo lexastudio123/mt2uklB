@@ -71,7 +71,9 @@ export default async function SubscribersPage({ searchParams }: { searchParams: 
                     <th>Source</th>
                     <th>Joined</th>
                     <th>Status</th>
-                    <th />
+                    <th>
+                  <span className="a-sr">Actions</span>
+                </th>
                   </tr>
                 </thead>
                 <tbody>

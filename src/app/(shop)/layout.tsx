@@ -21,7 +21,7 @@ export default async function ShopLayout({ children }: { children: React.ReactNo
       <a href="#app" className="k-sr" style={{ position: 'absolute' }}>
         Skip to content
       </a>
-      <div className="notice">
+      <aside className="notice" aria-label="Shop notice">
         <div className="wrap">
           <span className="ruo">
             <b>Laboratory research use only.</b> Not for human or veterinary use.
@@ -43,7 +43,7 @@ export default async function ShopLayout({ children }: { children: React.ReactNo
             )}
           </span>
         </div>
-      </div>
+      </aside>
       <SiteHeader />
       <main id="app">{children}</main>
       <SiteFooter settings={settings} catalog={client} />

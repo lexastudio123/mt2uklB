@@ -5,7 +5,7 @@ import { ABOUT } from '@/content/help';
 import { KitCrumbs } from '@/components/shop/trust';
 import { SupportStrip } from '@/components/shop/support-strip';
 
-export const metadata: Metadata = { title: 'About us', description: ABOUT.lede };
+export const metadata: Metadata = { title: 'About us', description: ABOUT.lede, alternates: { canonical: '/about' } };
 
 export default async function AboutPage() {
   const s = await getSettings();

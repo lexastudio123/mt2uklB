@@ -4,7 +4,8 @@ import { m2, money } from '@/lib/money';
 import { AddButton } from './bits';
 
 /** Grid card used on the shop page, search and "Also in the range". */
-export function ProductCard({ p }: { p: ClientProduct }) {
+export function ProductCard({ p, heading = 'h3', priority = false }: { p: ClientProduct; heading?: 'h2' | 'h3'; priority?: boolean }) {
+  const H = heading;
   const first = p.packs[0];
   const last = p.packs[p.packs.length - 1];
   if (!first) return null;
@@ -16,10 +17,10 @@ export function ProductCard({ p }: { p: ClientProduct }) {
     <article className="gc">
       <Link className="im" href={p.href}>
         {p.badge ? <span className="badge">{p.badge}</span> : save > 0 ? <span className="badge">Save {money(save)}</span> : null}
-        <img className={p.imageWide ? 'wide' : undefined} src={p.image} alt={`${p.fullName} vial`} loading="lazy" />
+        <img className={p.imageWide ? 'wide' : undefined} src={p.image} alt={`${p.fullName} vial`} loading={priority ? 'eager' : 'lazy'} fetchPriority={priority ? 'high' : undefined} />
       </Link>
       <div className="b">
-        <h3 className="disp">{p.code}</h3>
+        <H className="disp">{p.code}</H>
         <span className="m">
           {p.fullName}
           {bundle ? ' · 2 × 10 mg' : ' · lyophilised'}

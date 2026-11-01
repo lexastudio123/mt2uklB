@@ -81,7 +81,7 @@ export function ProductDetail({
               <i />
               <i />
             </span>
-            <img className={wide ? 'wide' : undefined} src={img} alt={`${p.fullName} vial`} width={wide ? 1000 : 600} height={900} style={{ opacity: fade ? 0 : 1 }} />
+            <img className={wide ? 'wide' : undefined} src={img} alt={`${p.fullName} vial`} width={wide ? 1000 : 600} height={900} fetchPriority="high" style={{ opacity: fade ? 0 : 1 }} />
           </div>
           <div className="thumbs">
             <button aria-pressed={view === 'v'} aria-label="Product image" onClick={() => showImage('v')}>

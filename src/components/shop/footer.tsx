@@ -12,7 +12,7 @@ export function SiteFooter({ settings, catalog }: { settings: SiteSettings; cata
         <div className="fg">
           <div>
             <Link className="logo" href="/" style={{ color: 'var(--crema)' }}>
-              MT2 LAB<small>UK</small>
+              MT2 LAB <small>UK</small>
             </Link>
             <p style={{ marginTop: 14, maxWidth: '40ch', fontSize: 14.5 }}>
               Melanotan I and II for laboratory research, with an HPLC and mass spec report for every lot. Shipped from the UK.
@@ -29,7 +29,7 @@ export function SiteFooter({ settings, catalog }: { settings: SiteSettings; cata
             )}
           </div>
           <div>
-            <h4>Shop</h4>
+            <h2>Shop</h2>
             {catalog.map((p) => (
               <Link key={p.id} href={p.href}>
                 {p.kind === 'bundle' ? p.name : p.name}
@@ -38,14 +38,14 @@ export function SiteFooter({ settings, catalog }: { settings: SiteSettings; cata
             <Link href="/shop">All products</Link>
           </div>
           <div>
-            <h4>Learn</h4>
+            <h2>Learn</h2>
             <Link href="/science">The science</Link>
             <Link href="/science#regulators">What regulators say</Link>
             <Link href="/lot-reports">Lot reports</Link>
             <Link href="/about">About us</Link>
           </div>
           <div>
-            <h4>Help</h4>
+            <h2>Help</h2>
             <Link href="/help">Help centre</Link>
             <Link href="/track">Track an order</Link>
             <Link href="/delivery">Delivery</Link>

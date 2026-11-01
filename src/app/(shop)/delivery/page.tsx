@@ -6,7 +6,11 @@ import { EtaLine } from '@/components/shop/bits';
 import { KitCrumbs } from '@/components/shop/trust';
 import { SupportStrip } from '@/components/shop/support-strip';
 
-export const metadata: Metadata = { title: 'Delivery', description: 'Same day dispatch, tracked UK delivery in a plain padded envelope, free over the threshold.' };
+export const metadata: Metadata = {
+  title: 'Delivery',
+  description: 'Same day dispatch on working days, tracked UK delivery in a plain padded envelope, free over the threshold. Prices and times.',
+  alternates: { canonical: '/delivery' },
+};
 
 export default async function DeliveryPage() {
   const s = await getSettings();

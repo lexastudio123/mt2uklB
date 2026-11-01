@@ -9,7 +9,9 @@ type Props = { params: Promise<{ code: string }> };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const lot = await findLot(decodeURIComponent((await params).code));
-  return lot ? { title: `Lot ${lot.code}`, description: `${lot.productName} lot ${lot.code}: ${lot.purity}% purity by HPLC.` } : { title: 'Lot not found' };
+  return lot
+    ? { title: `Lot ${lot.code}`, description: `${lot.productName} lot ${lot.code}: ${lot.purity}% purity by HPLC, identity confirmed by mass spectrometry, tested ${new Date(lot.testedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}.`, alternates: { canonical: `/lot-reports/${lot.code}` } }
+    : { title: 'Lot not found' };
 }
 
 /** Permanent page for one lot (handy for a QR code on the vial label). */

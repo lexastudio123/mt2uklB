@@ -174,6 +174,7 @@ export function Checkout({ profile }: { profile: Profile }) {
     return (
       <div className="k-page">
         <div className="k-wrap k-narrow">
+          <h1 className="k-sr">Checkout</h1>
           <div className="k-empty" style={{ marginTop: 20 }}>
             <p style={{ margin: 0, fontSize: 17, color: 'var(--k-ink)' }}>Your basket is empty, so there is nothing to check out yet.</p>
             <Link className="k-btn" href="/shop">
@@ -242,6 +243,7 @@ export function Checkout({ profile }: { profile: Profile }) {
   return (
     <div className="k-page" style={{ paddingTop: 8 }}>
       <div className="k-wrap">
+        <h1 className="k-sr">Checkout</h1>
         <nav className="k-steps" aria-label="Checkout steps">
           <Link href="/basket" className="k-link" style={{ fontWeight: 500, textDecoration: 'none', color: 'var(--k-mute)' }}>
             Basket

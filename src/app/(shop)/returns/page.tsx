@@ -4,7 +4,11 @@ import { returnsContent } from '@/content/help';
 import { Faq, KitCrumbs } from '@/components/shop/trust';
 import { SupportStrip } from '@/components/shop/support-strip';
 
-export const metadata: Metadata = { title: 'Returns and refunds', description: 'Return sealed vials within the returns window for a refund.' };
+export const metadata: Metadata = {
+  title: 'Returns and refunds',
+  description: 'Return sealed vials within the returns window for a refund, and get your money back if an independent test does not match our lot report.',
+  alternates: { canonical: '/returns' },
+};
 
 export default async function ReturnsPage() {
   const s = await getSettings();

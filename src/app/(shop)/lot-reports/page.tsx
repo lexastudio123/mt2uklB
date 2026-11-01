@@ -8,6 +8,7 @@ import { Crumbs } from '@/components/shop/trust';
 export const metadata: Metadata = {
   title: 'Lot reports',
   description: 'HPLC purity, mass spectrometry identity, content and endotoxin results for every lot we ship. Check the lot number on your label.',
+  alternates: { canonical: '/lot-reports' },
 };
 
 export default async function LotReportsPage() {

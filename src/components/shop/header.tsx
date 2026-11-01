@@ -31,8 +31,8 @@ export function SiteHeader() {
           <button className="ib menu-btn" aria-label="Open menu" onClick={() => setMenuOpen(true)}>
             <IconMenu />
           </button>
-          <Link className="logo" href="/" aria-label="MT2 Lab home">
-            MT2 LAB<small>UK</small>
+          <Link className="logo" href="/">
+            MT2 LAB <small>UK</small>
           </Link>
         </div>
         <nav className="main" aria-label="Main">

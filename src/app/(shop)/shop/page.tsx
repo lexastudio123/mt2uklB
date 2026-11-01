@@ -7,6 +7,7 @@ import { Crumbs } from '@/components/shop/trust';
 export const metadata: Metadata = {
   title: 'Shop',
   description: 'Melanotan I and II in 10 mg research vials, sold singly or in packs of up to 10. Every lot tested by HPLC and mass spectrometry.',
+  alternates: { canonical: '/shop' },
 };
 
 export default async function ShopPage() {
@@ -23,8 +24,8 @@ export default async function ShopPage() {
       </div>
       <div className="wrap" style={{ paddingBottom: 72 }}>
         <div className="grid">
-          {catalog.map((p) => (
-            <ProductCard key={p.id} p={toClientProduct(p)} />
+          {catalog.map((p, i) => (
+            <ProductCard key={p.id} p={toClientProduct(p)} heading="h2" priority={i < 3} />
           ))}
         </div>
         <div className="duo-band" style={{ marginTop: 28 }}>

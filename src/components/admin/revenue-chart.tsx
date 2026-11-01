@@ -41,7 +41,7 @@ export function RevenueChart({ data }: { data: Pt[] }) {
 
   return (
     <div className="a-chart">
-      <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`Revenue per day for the last ${data.length} days. Use the table below for exact values.`}>
+      <svg viewBox={`0 0 ${W} ${H}`} role="group" aria-label={`Revenue per day for the last ${data.length} days. Use the table below for exact values.`}>
         {ticks.map((v) => (
           <g key={v} aria-hidden="true">
             <line x1={L} x2={W - R} y1={y(v)} y2={y(v)} stroke={v === 0 ? '#CDBFAF' : '#EEE6DC'} strokeWidth="1" shapeRendering="crispEdges" />
@@ -58,6 +58,7 @@ export function RevenueChart({ data }: { data: Pt[] }) {
               key={d.key}
               className="slot"
               tabIndex={0}
+              role="img"
               aria-label={`${d.long}: ${m2(d.revenue)} from ${d.orders} ${d.orders === 1 ? 'order' : 'orders'}`}
               onPointerEnter={() => setHi(i)}
               onPointerLeave={() => setHi((cur) => (cur === i ? null : cur))}

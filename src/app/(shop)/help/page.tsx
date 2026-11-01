@@ -4,7 +4,11 @@ import { bankTransferAvailable, cardPaymentsAvailable, getSettings } from '@/lib
 import { helpContent } from '@/content/help';
 import { HelpCentre } from './client';
 
-export const metadata: Metadata = { title: 'Help centre', description: 'Answers about ordering, delivery, returns, payments, products and accounts.' };
+export const metadata: Metadata = {
+  title: 'Help centre',
+  description: 'Answers about ordering, pack savings, delivery times and costs, returns, payments, lot testing and your account, with 24/7 chat.',
+  alternates: { canonical: '/help' },
+};
 
 export default async function HelpPage() {
   const [catalog, s] = await Promise.all([getCatalog(), getSettings()]);

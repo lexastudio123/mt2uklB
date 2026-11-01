@@ -45,7 +45,9 @@ export default async function DiscountsPage({ searchParams }: { searchParams: Pr
                 <th>Dates</th>
                 <th className="num">Used</th>
                 <th>Status</th>
-                <th />
+                <th>
+                  <span className="a-sr">Actions</span>
+                </th>
               </tr>
             </thead>
             <tbody>
