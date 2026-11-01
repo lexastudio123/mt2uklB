@@ -1,0 +1,14 @@
+# For a VPS running the shop with PM2 (no Docker). Replace the domain, copy to /etc/caddy/Caddyfile,
+# then: sudo systemctl reload caddy
+mt2lab.example.co.uk, www.mt2lab.example.co.uk {
+	encode zstd gzip
+
+	@www host www.mt2lab.example.co.uk
+	redir @www https://mt2lab.example.co.uk{uri} permanent
+
+	request_body {
+		max_size 15MB
+	}
+
+	reverse_proxy 127.0.0.1:3000
+}

@@ -1,0 +1,38 @@
+# Production stack: the shop plus Caddy for automatic HTTPS.
+#   1. Point your domain's A record at the server.
+#   2. cp .env.example .env and fill it in (SITE_URL=https://yourdomain, DOMAIN=yourdomain).
+#   3. docker compose up -d --build
+#   4. docker compose exec app npm run admin:create
+services:
+  app:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: file:/data/mt2lab.db
+      UPLOAD_DIR: /data/uploads
+    volumes:
+      - shopdata:/data
+    expose:
+      - "3000"
+
+  caddy:
+    image: caddy:2.10
+    restart: unless-stopped
+    depends_on:
+      - app
+    environment:
+      DOMAIN: ${DOMAIN:?Set DOMAIN in .env, e.g. DOMAIN=mt2lab.co.uk}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  shopdata:
+  caddy_data:
+  caddy_config:

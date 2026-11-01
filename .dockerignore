@@ -1,0 +1,15 @@
+node_modules
+.next
+.next-*
+.git
+.env
+.env.*
+!.env.example
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+uploads
+backups
+.claude
+.DS_Store

@@ -1,0 +1,27 @@
+# dependencies
+node_modules/
+
+# next.js
+.next/
+.next-*/
+out/
+next-env.d.ts
+*.tsbuildinfo
+
+# environment
+.env
+.env.local
+.env.*.local
+
+# data (never commit customer data)
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+/uploads/
+/backups/
+/data/
+
+# misc
+.DS_Store
+npm-debug.log*

@@ -1,0 +1,492 @@
+// MT2 Lab data model.
+// SQLite by default. To use PostgreSQL, change `provider` to "postgresql",
+// point DATABASE_URL at your server and run `npx prisma migrate dev --name init`.
+// Status-like fields are plain strings (validated in src/lib) so the schema works on both.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// Key/value store for site settings (JSON in `value`).
+model Setting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+}
+
+// ───────────────────────────── Catalogue ─────────────────────────────
+
+model Product {
+  id             String   @id @default(cuid())
+  slug           String   @unique
+  code           String   @unique // short code shown large, e.g. MT2
+  name           String // Melanotan II
+  fullName       String // Melanotan II 10 mg
+  altName        String? // afamelanotide
+  kind           String   @default("single") // single | bundle
+  tagline        String   @default("") // small kicker above the title
+  lede           String   @default("")
+  badge          String?
+  highlights     String   @default("[]") // JSON string[]
+  image          String
+  imageWide      Boolean  @default(false)
+  packImage      String? // optional extra gallery image (e.g. 5 vial pack)
+  sequence       String?
+  structure      String?
+  massDa         String?
+  contentMg      Int      @default(10)
+  form           String   @default("Lyophilised powder, sealed under nitrogen")
+  vial           String?
+  storage        String   @default("Sealed, −20 °C, away from light")
+  research       String   @default("{}") // JSON research summary, see src/lib/catalog.ts
+  searchTerms    String   @default("")
+  seoTitle       String?
+  seoDescription String?
+  trackStock     Boolean  @default(true)
+  stock          Int      @default(0) // vials on hand (bundles draw from their components)
+  lowStock       Int      @default(20)
+  active         Boolean  @default(true)
+  sortOrder      Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  packs          Pack[]
+  lots           Lot[]
+  bundleItems    BundleItem[]    @relation("BundleParent")
+  inBundles      BundleItem[]    @relation("BundleChild")
+  orderItems     OrderItem[]
+  alerts         ProductAlert[]
+  stockMovements StockMovement[]
+}
+
+model BundleItem {
+  id        String  @id @default(cuid())
+  bundleId  String
+  productId String
+  qty       Int     @default(1)
+  bundle    Product @relation("BundleParent", fields: [bundleId], references: [id], onDelete: Cascade)
+  product   Product @relation("BundleChild", fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([bundleId, productId])
+}
+
+// A purchasable pack size of a product, e.g. 3 vials for £57.
+model Pack {
+  id         String      @id @default(cuid())
+  productId  String
+  qty        Int // units in the pack (vials, or duos for a bundle)
+  price      Int // pence, VAT inclusive
+  tag        String? // "Most popular", "Best value"
+  active     Boolean     @default(true)
+  sortOrder  Int         @default(0)
+  product    Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  orderItems OrderItem[]
+
+  @@unique([productId, qty])
+}
+
+// A tested production lot. One current lot per product is shown on the site.
+model Lot {
+  id          String   @id @default(cuid())
+  code        String   @unique // MT2-2611
+  productId   String
+  purity      String // "99.42"
+  massDa      String? // observed mass, "1024.2"
+  content     String? // "10.2 mg"
+  endotoxin   String? // "<0.5 EU/mg"
+  retention   String? // HPLC main peak in minutes, "9.6"
+  lab         String?
+  testedAt    DateTime
+  reportUrl   String? // uploaded certificate (PDF or image)
+  notes       String?
+  isCurrent   Boolean  @default(false)
+  isPublished Boolean  @default(true)
+  isSample    Boolean  @default(false) // shows a "Sample data" badge
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+}
+
+model StockMovement {
+  id        String     @id @default(cuid())
+  productId String
+  delta     Int
+  reason    String // order | cancel | restock | adjustment | refund
+  note      String?
+  orderId   String?
+  adminId   String?
+  createdAt DateTime   @default(now())
+  product   Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
+  admin     AdminUser? @relation(fields: [adminId], references: [id], onDelete: SetNull)
+
+  @@index([productId])
+}
+
+// ───────────────────────────── Customers ─────────────────────────────
+
+model Customer {
+  id              String    @id @default(cuid())
+  email           String    @unique // stored lower case
+  name            String    @default("")
+  phone           String?
+  passwordHash    String?
+  emailVerifiedAt DateTime?
+  marketingOptIn  Boolean   @default(false)
+  shippingUpdates Boolean   @default(true)
+  tags            String    @default("") // comma separated
+  referralCode    String    @unique
+  referredById    String?
+  creditPence     Int       @default(0)
+  blocked         Boolean   @default(false)
+  lastLoginAt     DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  referredBy   Customer?      @relation("Referrals", fields: [referredById], references: [id], onDelete: SetNull)
+  referrals    Customer[]     @relation("Referrals")
+  addresses    Address[]
+  orders       Order[]        @relation("CustomerOrders")
+  referredOrders Order[]      @relation("ReferrerOrders")
+  sessions     Session[]
+  tokens       AuthToken[]
+  notes        CustomerNote[]
+  alerts       ProductAlert[]
+  tickets      Ticket[]
+  credits      CreditEntry[]
+  chats        ChatConversation[]
+}
+
+model Address {
+  id         String   @id @default(cuid())
+  customerId String
+  name       String
+  line1      String
+  line2      String?
+  city       String
+  postcode   String
+  country    String   @default("United Kingdom")
+  phone      String?
+  isDefault  Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerId])
+}
+
+// Customer sign-in sessions. `id` is the SHA-256 of the cookie token.
+model Session {
+  id         String   @id
+  customerId String
+  expiresAt  DateTime
+  ip         String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerId])
+}
+
+// One-time tokens: password reset, magic sign-in, finish-account. `id` is the SHA-256 of the token.
+model AuthToken {
+  id         String    @id
+  customerId String
+  kind       String // reset | magic | claim
+  expiresAt  DateTime
+  usedAt     DateTime?
+  createdAt  DateTime  @default(now())
+  customer   Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerId])
+}
+
+model CustomerNote {
+  id         String     @id @default(cuid())
+  customerId String
+  adminId    String?
+  body       String
+  createdAt  DateTime   @default(now())
+  customer   Customer   @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  admin      AdminUser? @relation(fields: [adminId], references: [id], onDelete: SetNull)
+
+  @@index([customerId])
+}
+
+// Store credit ledger (referral rewards, goodwill, spent at checkout).
+model CreditEntry {
+  id         String     @id @default(cuid())
+  customerId String
+  amount     Int // pence, positive adds credit, negative spends it
+  reason     String
+  orderId    String?
+  adminId    String?
+  createdAt  DateTime   @default(now())
+  customer   Customer   @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  admin      AdminUser? @relation(fields: [adminId], references: [id], onDelete: SetNull)
+
+  @@index([customerId])
+}
+
+// Restock / new lot alerts per product.
+model ProductAlert {
+  id         String    @id @default(cuid())
+  email      String
+  customerId String?
+  productId  String
+  createdAt  DateTime  @default(now())
+  customer   Customer? @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  product    Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([email, productId])
+}
+
+model Subscriber {
+  id             String    @id @default(cuid())
+  email          String    @unique
+  source         String // footer | popup | checkout | account | admin
+  token          String    @unique // for one-click unsubscribe links
+  unsubscribedAt DateTime?
+  createdAt      DateTime  @default(now())
+}
+
+// ───────────────────────────── Orders ─────────────────────────────
+
+model Order {
+  id                 String    @id @default(cuid())
+  number             String    @unique // MT12345
+  accessToken        String    @unique // private link for guests (confirmation, invoice)
+  customerId         String?
+  referrerId         String?
+  email              String
+  name               String
+  phone              String?
+  shipLine1          String
+  shipLine2          String?
+  shipCity           String
+  shipPostcode       String
+  shipCountry        String
+  billSame           Boolean   @default(true)
+  billLine1          String?
+  billCity           String?
+  billPostcode       String?
+  // awaiting_payment | paid | packed | dispatched | delivered | cancelled | refunded
+  status             String    @default("awaiting_payment")
+  paymentMethod      String // bank_transfer | card
+  paymentStatus      String    @default("unpaid") // unpaid | paid | partially_refunded | refunded
+  paymentRef         String? // provider checkout session id
+  paymentIntent      String? // provider payment id (refunds)
+  paymentDetail      String? // "Visa ending 4242", "Bank transfer"
+  currency           String    @default("GBP")
+  subtotal           Int
+  discount           Int       @default(0)
+  credit             Int       @default(0)
+  shipping           Int
+  total              Int
+  refundedAmount     Int       @default(0)
+  discountCode       String?
+  shippingMethodId   String
+  shippingMethodName String
+  etaFrom            DateTime?
+  etaTo              DateTime?
+  trackingNumber     String?
+  trackingCarrier    String?
+  trackingUrl        String?
+  customerNote       String?
+  ruoConfirmed       Boolean   @default(false)
+  marketingOptIn     Boolean   @default(false)
+  placedSignedIn     Boolean   @default(false)
+  ip                 String?
+  userAgent          String?
+  paidAt             DateTime?
+  packedAt           DateTime?
+  dispatchedAt       DateTime?
+  deliveredAt        DateTime?
+  cancelledAt        DateTime?
+  refundedAt         DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  customer Customer?    @relation("CustomerOrders", fields: [customerId], references: [id], onDelete: SetNull)
+  referrer Customer?    @relation("ReferrerOrders", fields: [referrerId], references: [id], onDelete: SetNull)
+  items    OrderItem[]
+  events   OrderEvent[]
+
+  @@index([status])
+  @@index([createdAt])
+  @@index([email])
+  @@index([customerId])
+}
+
+model OrderItem {
+  id          String   @id @default(cuid())
+  orderId     String
+  productId   String?
+  packId      String?
+  productName String
+  productCode String
+  packLabel   String
+  packQty     Int // units per pack
+  vials       Int // vials per pack
+  qty         Int // number of packs
+  unitPrice   Int // pence per pack
+  lineTotal   Int
+  image       String
+  lotCodes    String? // recorded when packed, for traceability
+  order       Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product     Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+  pack        Pack?    @relation(fields: [packId], references: [id], onDelete: SetNull)
+
+  @@index([orderId])
+}
+
+// Order timeline: status changes, payments, emails, notes.
+model OrderEvent {
+  id        String     @id @default(cuid())
+  orderId   String
+  type      String // created | status | payment | note | email | tracking | refund | system
+  message   String
+  adminId   String?
+  createdAt DateTime   @default(now())
+  order     Order      @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  admin     AdminUser? @relation(fields: [adminId], references: [id], onDelete: SetNull)
+
+  @@index([orderId])
+}
+
+model DiscountCode {
+  id             String    @id @default(cuid())
+  code           String    @unique // upper case
+  description    String?
+  kind           String    @default("percent") // percent | fixed
+  value          Int // percent (10 = 10%) or pence
+  minSubtotal    Int       @default(0)
+  firstOrderOnly Boolean   @default(false)
+  maxUses        Int?
+  usedCount      Int       @default(0)
+  startsAt       DateTime?
+  endsAt         DateTime?
+  active         Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+}
+
+// ───────────────────────────── Support ─────────────────────────────
+
+model Ticket {
+  id            String          @id @default(cuid())
+  ref           String          @unique // C123456
+  accessToken   String          @unique // customer view link
+  customerId    String?
+  email         String
+  name          String
+  topic         String
+  orderNumber   String?
+  status        String          @default("open") // open | pending | closed
+  channel       String          @default("contact") // contact | chat | email
+  assigneeId    String?
+  lastMessageAt DateTime        @default(now())
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  customer      Customer?       @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  assignee      AdminUser?      @relation(fields: [assigneeId], references: [id], onDelete: SetNull)
+  messages      TicketMessage[]
+
+  @@index([status])
+}
+
+model TicketMessage {
+  id        String     @id @default(cuid())
+  ticketId  String
+  author    String // customer | admin | system
+  adminId   String?
+  body      String
+  createdAt DateTime   @default(now())
+  ticket    Ticket     @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  admin     AdminUser? @relation(fields: [adminId], references: [id], onDelete: SetNull)
+
+  @@index([ticketId])
+}
+
+model ChatConversation {
+  id           String    @id @default(cuid())
+  visitorId    String
+  customerId   String?
+  messages     String // JSON [{role, text, at}]
+  messageCount Int       @default(0)
+  flagged      Boolean   @default(false) // a usage/dosing question was declined
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  customer     Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+
+  @@index([visitorId])
+}
+
+model EmailLog {
+  id         String   @id @default(cuid())
+  to         String
+  subject    String
+  template   String
+  status     String // sent | logged | failed
+  error      String?
+  html       String?
+  orderId    String?
+  customerId String?
+  createdAt  DateTime @default(now())
+
+  @@index([createdAt])
+}
+
+// ───────────────────────────── Admin ─────────────────────────────
+
+model AdminUser {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  name         String
+  passwordHash String
+  role         String    @default("staff") // owner | admin | staff
+  active       Boolean   @default(true)
+  lastLoginAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  sessions       AdminSession[]
+  orderEvents    OrderEvent[]
+  customerNotes  CustomerNote[]
+  ticketMessages TicketMessage[]
+  assignedTickets Ticket[]
+  activity       ActivityLog[]
+  credits        CreditEntry[]
+  stockMovements StockMovement[]
+}
+
+model AdminSession {
+  id        String    @id // SHA-256 of the cookie token
+  adminId   String
+  expiresAt DateTime
+  ip        String?
+  userAgent String?
+  createdAt DateTime  @default(now())
+  admin     AdminUser @relation(fields: [adminId], references: [id], onDelete: Cascade)
+
+  @@index([adminId])
+}
+
+model ActivityLog {
+  id        String     @id @default(cuid())
+  adminId   String?
+  action    String // e.g. order.dispatch, product.update
+  entity    String?
+  entityId  String?
+  detail    String?
+  ip        String?
+  createdAt DateTime   @default(now())
+  admin     AdminUser? @relation(fields: [adminId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+}
