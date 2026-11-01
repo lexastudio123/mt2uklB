@@ -151,3 +151,4 @@ The admin dashboard shows most of these as it goes.
 - [ ] "Hide from search engines" switched off in Admin › Settings when you are ready to be found
 - [ ] Hourly cron and nightly backups added, and one backup restored as a test
 - [ ] Remove `ADMIN_PASSWORD` from `.env` after the first login
+- [ ] Turn on two-step sign in for every owner (Admin › Your account)

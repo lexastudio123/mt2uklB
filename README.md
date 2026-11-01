@@ -25,6 +25,7 @@ Built from the MT2 Lab design preview: same look, copy and research-use-only saf
 - Inbox: contact form conversations with email replies, plus chat transcripts
 - Products, pack prices, stock and stock history; lots with certificate upload, "make current" and alert emails
 - Discount codes, subscribers, email log, settings (store, delivery, payments, checkout, marketing, referral, chat), team accounts with roles, activity log
+- Two-step sign in for admin accounts (code from an authenticator app such as Google Authenticator or 1Password)
 
 **Behind the scenes**
 - Every order, payment, email and admin action is recorded
@@ -117,7 +118,7 @@ scripts/                  create-admin, backup
 ## Security notes
 
 - Passwords are hashed with scrypt; sessions are random tokens stored hashed, in HTTP-only cookies
-- Admin pages and actions check the signed-in admin and role on every request (owner, admin, staff)
+- Admin pages and actions check the signed-in admin and role on every request (owner, admin, staff), with optional two-step sign in; a lost phone is reset by an owner under Team, or on the server with `npm run admin:create`
 - Rate limits on sign-in, checkout, contact, chat and lookups; cross-site requests are rejected
 - Strict security headers and a content security policy in production
 - Card details go straight to the payment provider; bank details are only shown to the customer who placed the order
